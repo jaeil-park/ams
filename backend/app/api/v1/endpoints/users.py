@@ -30,9 +30,12 @@ async def read_users(
     
     users_out = [UserOut.model_validate(u) for u in users]
     
+    total_pages = (total + limit - 1) // limit if limit > 0 else 1
+    page = (skip // limit) + 1 if limit > 0 else 1
+    
     return ResponseEnvelope(
         data=users_out,
-        meta={"total": total, "skip": skip, "limit": limit}
+        meta={"total": total, "page": page, "limit": limit, "total_pages": total_pages}
     )
 
 @router.post("", response_model=ResponseEnvelope)
