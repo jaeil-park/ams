@@ -24,8 +24,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# DATABASE_URL을 settings에서 동적으로 가져옴
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# DATABASE_URL을 settings에서 동적으로 가져오되, configparser 보간법 오류 방지를 위해 %를 %%로 이스케이프
+escaped_url = settings.DATABASE_URL.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", escaped_url)
 
 # autogenerate용 metadata
 target_metadata = Base.metadata
