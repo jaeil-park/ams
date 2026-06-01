@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api } from '@/utils/api'
+import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
-import { Plus, Edit2, ShieldAlert, KeyRound, ShieldCheck, Mail, User as UserIcon } from 'lucide-vue-next'
+import { Plus, Edit2, ShieldAlert, KeyRound, ShieldCheck, Mail, User as UserIcon } from '@lucide/vue'
 
 import AppTable from '@/components/common/AppTable.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -29,7 +29,7 @@ const fetchUsers = async () => {
     const { data } = await api.get('/users')
     users.value = data.data
   } catch (error) {
-    uiStore.showToast('사용자 목록을 불러오는데 실패했습니다.', 'error')
+    uiStore.addToast('사용자 목록을 불러오는데 실패했습니다.', 'error')
   } finally {
     loading.value = false
   }
@@ -88,12 +88,12 @@ const submitForm = async () => {
   try {
     if (modalType.value === 'create') {
       if (!formData.value.password) {
-        uiStore.showToast('초기 비밀번호를 입력해주세요.', 'warning')
+        uiStore.addToast('초기 비밀번호를 입력해주세요.', 'warning')
         saving.value = false
         return
       }
       await api.post('/users', formData.value)
-      uiStore.showToast('사용자가 성공적으로 생성되었습니다.', 'success')
+      uiStore.addToast('사용자가 성공적으로 생성되었습니다.', 'success')
     } else {
       const payload: any = {
         name: formData.value.name,
@@ -104,15 +104,15 @@ const submitForm = async () => {
         payload.password = formData.value.password
       }
       await api.patch(`/users/${formData.value.id}`, payload)
-      uiStore.showToast('사용자 정보가 수정되었습니다.', 'success')
+      uiStore.addToast('사용자 정보가 수정되었습니다.', 'success')
     }
     closeModal()
     fetchUsers()
   } catch (error: any) {
     if (error.response?.status === 400 && error.response?.data?.detail) {
-      uiStore.showToast(error.response.data.detail, 'error')
+      uiStore.addToast(error.response.data.detail, 'error')
     } else {
-      uiStore.showToast('작업에 실패했습니다.', 'error')
+      uiStore.addToast('작업에 실패했습니다.', 'error')
     }
   } finally {
     saving.value = false
@@ -124,13 +124,13 @@ const confirmDeactivate = async (user: User) => {
   if (confirm(`'${user.name}' 사용자를 비활성화하시겠습니까?`)) {
     try {
       await api.delete(`/users/${user.id}`)
-      uiStore.showToast('사용자가 비활성화되었습니다.', 'success')
+      uiStore.addToast('사용자가 비활성화되었습니다.', 'success')
       fetchUsers()
     } catch (error: any) {
       if (error.response?.status === 400) {
-        uiStore.showToast(error.response.data.detail, 'error')
+        uiStore.addToast(error.response.data.detail, 'error')
       } else {
-        uiStore.showToast('비활성화 처리에 실패했습니다.', 'error')
+        uiStore.addToast('비활성화 처리에 실패했습니다.', 'error')
       }
     }
   }
@@ -156,7 +156,7 @@ const confirmDeactivate = async (user: User) => {
     <!-- Table -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <AppTable
-        :data="users"
+        :items="users"
         :columns="[
           { key: 'email', label: '이메일 계정' },
           { key: 'name', label: '이름' },
@@ -165,10 +165,9 @@ const confirmDeactivate = async (user: User) => {
           { key: 'actions', label: '' }
         ]"
         :loading="loading"
-        empty-message="등록된 사용자가 없습니다."
       >
         <!-- Cell: Email -->
-        <template #cell(email)="{ item }">
+        <template #email="{ item }">
           <div class="flex items-center text-gray-900 font-medium">
             <Mail class="w-4 h-4 mr-2 text-gray-400" />
             {{ item.email }}
@@ -176,7 +175,7 @@ const confirmDeactivate = async (user: User) => {
         </template>
         
         <!-- Cell: Name -->
-        <template #cell(name)="{ item }">
+        <template #name="{ item }">
           <div class="flex items-center text-gray-600">
             <UserIcon class="w-4 h-4 mr-2 text-gray-400" />
             {{ item.name }}
@@ -184,7 +183,7 @@ const confirmDeactivate = async (user: User) => {
         </template>
 
         <!-- Cell: Role -->
-        <template #cell(role)="{ item }">
+        <template #role="{ item }">
           <div class="flex items-center gap-1.5" :class="item.role === 'ADMIN' ? 'text-indigo-600 font-medium' : 'text-gray-600'">
             <ShieldCheck v-if="item.role === 'ADMIN'" class="w-4 h-4" />
             <span v-else class="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-500 font-bold">U</span>
@@ -193,14 +192,14 @@ const confirmDeactivate = async (user: User) => {
         </template>
 
         <!-- Cell: Status -->
-        <template #cell(is_active)="{ item }">
+        <template #is_active="{ item }">
           <AppBadge :status="item.is_active ? 'ACTIVE' : 'INACTIVE'">
             {{ item.is_active ? '활성' : '비활성' }}
           </AppBadge>
         </template>
 
         <!-- Cell: Actions -->
-        <template #cell(actions)="{ item }">
+        <template #actions="{ item }">
           <div class="flex items-center justify-end gap-2">
             <AppButton variant="ghost" size="sm" @click="openEditModal(item)">
               <Edit2 class="w-4 h-4" />
