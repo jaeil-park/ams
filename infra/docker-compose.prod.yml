@@ -34,7 +34,7 @@ services:
 
   # ─── FastAPI Backend ─────────────────────────────────────────────────────────
   backend:
-    image: ghcr.io/${GHCR_USERNAME:-jaeilpark82}/${GHCR_REPO:-ams}-backend:latest
+    image: ghcr.io/${GHCR_USERNAME:-jaeil-park}/${GHCR_REPO:-ams}-backend:latest
     container_name: ams-backend
     restart: unless-stopped
     environment:
@@ -60,7 +60,7 @@ services:
 
   # ─── Vue3 Frontend (nginx + 정적파일 + API 프록시) ────────────────────────────
   frontend:
-    image: ghcr.io/${GHCR_USERNAME:-jaeilpark82}/${GHCR_REPO:-ams}-frontend:latest
+    image: ghcr.io/${GHCR_USERNAME:-jaeil-park}/${GHCR_REPO:-ams}-frontend:latest
     container_name: ams-frontend
     restart: unless-stopped
     ports:
