@@ -18,8 +18,15 @@ async def read_users(
     current_user: User = Depends(require_admin),
 ) -> Any:
     """사용자 목록을 조회합니다 (ADMIN 전용)."""
-    users = await crud_user.user.get_multi(db, skip=skip, limit=limit)
-    total = await crud_user.user.get_count(db)
+    from sqlalchemy import select, func
+    
+    query = select(User).offset(skip).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+    
+    count_query = select(func.count(User.id))
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
     
     users_out = [UserOut.model_validate(u) for u in users]
     

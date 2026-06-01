@@ -1,9 +1,9 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 # 공통 속성
 class UserBase(BaseModel):
-    email: EmailStr
+    email: str
     name: str
     role: str = "USER"
     is_active: bool = True
