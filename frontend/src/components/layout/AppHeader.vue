@@ -13,7 +13,7 @@
       </button>
 
       <!-- Breadcrumbs -->
-      <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
+      <div class="flex items-center gap-2 text-sm font-semibold text-slate-500 select-none">
         <span>AMS</span>
         <span>/</span>
         <span class="text-slate-900 capitalize">{{ currentPageLabel }}</span>
@@ -32,7 +32,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="S/N, 고객사, 모델명 검색..."
-            class="bg-transparent text-xs text-slate-700 placeholder-slate-400 focus:outline-none w-full"
+            class="bg-transparent text-sm text-slate-700 placeholder-slate-400 focus:outline-none w-full"
             @input="onSearchInput"
             @focus="showDropdown = !!searchQuery && hasResults"
             @keydown.escape="closeSearch"
@@ -49,7 +49,7 @@
           v-if="showDropdown && hasResults"
           class="absolute top-full left-0 mt-1.5 w-96 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
         >
-          <div v-if="searchLoading" class="px-4 py-4 text-center text-xs text-slate-400">
+          <div v-if="searchLoading" class="px-4 py-4 text-center text-sm text-slate-400">
             검색 중...
           </div>
           <template v-else>
@@ -65,7 +65,7 @@
                 class="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between group"
                 @click="navigateTo('inventory', item)"
               >
-                <span class="text-xs font-semibold text-slate-800 font-mono">{{ item.serial_tag }}</span>
+                <span class="text-sm font-semibold text-slate-800 font-mono">{{ item.serial_tag }}</span>
                 <span class="text-3xs text-slate-400 group-hover:text-blue-600 transition-colors">{{ item.model }}</span>
               </button>
             </div>
@@ -82,7 +82,7 @@
                 class="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between group"
                 @click="navigateTo('customers', item)"
               >
-                <span class="text-xs font-semibold text-slate-800">{{ item.name }}</span>
+                <span class="text-sm font-semibold text-slate-800">{{ item.name }}</span>
                 <span class="text-3xs text-slate-400 font-mono group-hover:text-blue-600 transition-colors">{{ item.code }}</span>
               </button>
             </div>
@@ -99,7 +99,7 @@
                 class="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between group"
                 @click="navigateTo('projects', item)"
               >
-                <span class="text-xs font-semibold text-slate-800">{{ item.name }}</span>
+                <span class="text-sm font-semibold text-slate-800">{{ item.name }}</span>
                 <span class="text-3xs text-slate-400 font-mono group-hover:text-blue-600 transition-colors">{{ item.po_number }}</span>
               </button>
             </div>
@@ -116,13 +116,13 @@
                 class="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between group"
                 @click="navigateTo('parts', item)"
               >
-                <span class="text-xs font-semibold text-slate-800">{{ item.model }}</span>
+                <span class="text-sm font-semibold text-slate-800">{{ item.model }}</span>
                 <span class="text-3xs text-slate-400 group-hover:text-blue-600 transition-colors">{{ item.category }} / {{ item.qty }}개</span>
               </button>
             </div>
 
             <!-- 결과 없음 -->
-            <div v-if="!hasResults" class="px-4 py-4 text-center text-xs text-slate-400">
+            <div v-if="!hasResults" class="px-4 py-4 text-center text-sm text-slate-400">
               "{{ searchQuery }}"에 대한 검색 결과가 없습니다.
             </div>
           </template>
@@ -163,10 +163,10 @@
             {{ userInitial }}
           </div>
           <div class="hidden md:block text-left">
-            <div class="text-xs font-semibold text-slate-800 leading-tight">
+            <div class="text-sm font-semibold text-slate-800 leading-tight">
               {{ authStore.user?.name || '사용자' }}
             </div>
-            <div class="text-4xs font-bold text-slate-400 leading-none">
+            <div class="text-xs font-bold text-slate-400 leading-none">
               {{ authStore.user?.role || 'USER' }}
             </div>
           </div>
@@ -179,7 +179,7 @@
         >
           <button
             type="button"
-            class="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
+            class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
             @click="handleLogout"
           >
             <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

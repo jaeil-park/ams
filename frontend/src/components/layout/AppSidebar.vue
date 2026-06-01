@@ -19,7 +19,7 @@
     <nav class="flex-1 px-2 py-4 overflow-y-auto space-y-6">
       <!-- MAIN SECTION -->
       <div>
-        <div v-if="uiStore.isSidebarOpen" class="px-3 text-2xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+        <div v-if="uiStore.isSidebarOpen" class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           Main
         </div>
         <ul class="space-y-1">
@@ -27,7 +27,7 @@
             <RouterLink 
               :to="item.to"
               :class="[
-                'flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors font-medium',
+                'flex items-center gap-3 px-3 py-2 text-base rounded-md transition-colors font-medium',
                 route.name === item.name 
                   ? 'bg-blue-600 text-white font-semibold' 
                   : 'hover:bg-slate-800 hover:text-white'
@@ -43,7 +43,7 @@
 
       <!-- OPS SECTION -->
       <div>
-        <div v-if="uiStore.isSidebarOpen" class="px-3 text-2xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+        <div v-if="uiStore.isSidebarOpen" class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           Operations
         </div>
         <ul class="space-y-1">
@@ -51,7 +51,7 @@
             <RouterLink
               :to="item.to"
               :class="[
-                'flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors font-medium',
+                'flex items-center gap-3 px-3 py-2 text-base rounded-md transition-colors font-medium',
                 route.name === item.name
                   ? 'bg-blue-600 text-white font-semibold'
                   : 'hover:bg-slate-800 hover:text-white'
@@ -73,7 +73,7 @@
 
       <!-- ADMIN SECTION -->
       <div v-if="authStore.isAdmin">
-        <div v-if="uiStore.isSidebarOpen" class="px-3 text-2xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+        <div v-if="uiStore.isSidebarOpen" class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           Admin
         </div>
         <ul class="space-y-1">
@@ -81,7 +81,7 @@
             <RouterLink
               :to="item.to"
               :class="[
-                'flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors font-medium',
+                'flex items-center gap-3 px-3 py-2 text-base rounded-md transition-colors font-medium',
                 route.name === item.name
                   ? 'bg-blue-600 text-white font-semibold'
                   : 'hover:bg-slate-800 hover:text-white'

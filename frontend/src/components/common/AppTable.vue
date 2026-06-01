@@ -1,13 +1,13 @@
 <template>
   <div class="overflow-x-auto rounded-lg border border-slate-200 shadow-sm bg-white">
-    <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <table class="min-w-full divide-y divide-slate-200 text-base">
       <thead class="bg-slate-50">
         <tr>
           <th
             v-for="col in columns"
             :key="col.key"
             :class="[
-              'px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider',
+              'px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider',
               col.sortable ? 'cursor-pointer hover:bg-slate-100 select-none' : ''
             ]"
             @click="col.sortable && handleSort(col.key)"
