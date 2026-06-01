@@ -1,0 +1,46 @@
+# ─── Python ────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+
+# ─── Node ──────────────────────────────────────────
+node_modules/
+dist/
+.nuxt/
+.output/
+
+# ─── Environment ───────────────────────────────────
+.env
+.env.local
+.env.*.local
+infra/.env.prod
+
+# ─── IDE ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# ─── OS ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ─── Docker ────────────────────────────────────────
+postgres_data/
+
+# ─── Logs ──────────────────────────────────────────
+*.log
+logs/
+
+# ─── Temp Archive ──────────────────────────────────
+*.tar
+
