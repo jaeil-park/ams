@@ -2,8 +2,8 @@
   <div class="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
       <!-- Logo banner -->
-      <div class="mx-auto h-12 w-12 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-        A
+      <div class="mx-auto w-full max-w-[240px] bg-white rounded-xl shadow-lg flex items-center justify-center p-4">
+        <img src="@/assets/logo.png" alt="Ezenuri Logo" class="h-10 object-contain" />
       </div>
       <h2 class="mt-6 text-center text-xl font-bold tracking-tight text-white select-none">
         AMS ERP 로그인

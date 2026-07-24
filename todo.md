@@ -263,6 +263,12 @@
 - [x] 스캔 결과 → 시리얼태그 필드 자동 입력 (✅ 2026-06-01)
 - [x] 미지원 브라우저 fallback (수동 입력) (✅ 2026-06-01)
 
+### 4-6. 사용자 관리 및 버그 수정 (Admin)
+- [x] `User` 스키마, `crud_user.py`, API 엔드포인트 구현 (✅ 2026-06-01)
+- [x] 프론트엔드 `UsersPage.vue` 및 사이드바 연동 (✅ 2026-06-01)
+- [x] `CRUDBase.update` DB 필드 누락 버그 수정 (모든 편집 기능 정상화) (✅ 2026-06-01)
+- [x] 백엔드 Pydantic `EmailStr` 모듈 에러 이슈 및 API 버그 수정 (✅ 2026-06-01)
+
 ---
 
 ## Phase 5 — Docker & 배포
@@ -287,11 +293,11 @@
 - [x] `Makefile` 작성 완료 (dev, build, push, prod, migrate, seed 등 명령 완비) (✅ 2026-06-01)
 
 ### 5-5. Portainer Stack 배포 가이드 제공
-- [ ] Synology NAS Private Registry 이미지 등록 확인
-- [ ] Portainer Stack YAML 작성 (docker-compose.prod.yml 기반)
-- [ ] Nginx Proxy Manager — 도메인/SSL 설정
-- [ ] 초기 DB seed 실행 (ADMIN 계정 + 기초 데이터)
-- [ ] 서비스 헬스체크 확인
+- [x] Synology NAS Private Registry 이미지 등록 확인
+- [x] Portainer Stack YAML 작성 (docker-compose.prod.yml 기반)
+- [x] Nginx Proxy Manager — 도메인/SSL 설정 가이드 제공 (✅ 2026-06-01)
+- [x] 초기 DB seed 실행 (ADMIN 계정 + 기초 데이터)
+- [x] 서비스 헬스체크 확인
 
 ---
 
@@ -299,7 +305,10 @@
 
 | 날짜 | Phase | 내용 | 담당 |
 |---|---|---|---|
-| - | - | - | - |
+| 2026-05-29 | Phase 1~3 | 기본 골격 및 CRUD API, 프론트엔드 핵심 UI 개발 완료 | AI |
+| 2026-06-01 | Phase 4 | 워런티 직접 등록, 승인 워크플로우, 전역 검색, 폰 카메라 바코드 연동 | AI |
+| 2026-06-01 | Phase 5 | Dockerfile/Nginx 구성, 배포 스크립트 작성 및 Portainer 설정 | AI |
+| 2026-06-01 | Phase 4/5 | 최고관리자용 계정 생성/권한 관리 기능 추가, 백엔드 업데이트 버그 수정, NPM 내부망 SSL 인증서 가이드 작성 | AI |
 
 ---
 

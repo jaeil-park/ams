@@ -10,7 +10,7 @@ from app.schemas.common import ResponseEnvelope
 
 router = APIRouter()
 
-@router.get("", response_model=ResponseEnvelope)
+@router.get("/", response_model=ResponseEnvelope[List[UserOut]])
 async def read_users(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
@@ -38,7 +38,7 @@ async def read_users(
         meta={"total": total, "page": page, "limit": limit, "total_pages": total_pages}
     )
 
-@router.post("", response_model=ResponseEnvelope)
+@router.post("/", response_model=ResponseEnvelope[UserOut])
 async def create_user(
     *,
     db: AsyncSession = Depends(get_db),
@@ -49,7 +49,7 @@ async def create_user(
     user = await crud_user.user.create(db=db, obj_in=user_in)
     return ResponseEnvelope(data=UserOut.model_validate(user))
 
-@router.get("/{id}", response_model=ResponseEnvelope)
+@router.get("/{id}", response_model=ResponseEnvelope[UserOut])
 async def read_user(
     *,
     db: AsyncSession = Depends(get_db),
@@ -62,7 +62,7 @@ async def read_user(
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     return ResponseEnvelope(data=UserOut.model_validate(user))
 
-@router.patch("/{id}", response_model=ResponseEnvelope)
+@router.patch("/{id}", response_model=ResponseEnvelope[UserOut])
 async def update_user(
     *,
     db: AsyncSession = Depends(get_db),
@@ -74,26 +74,32 @@ async def update_user(
     user = await crud_user.user.get(db=db, id=id)
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-    
+
+    # 자기 자신은 비활성화하거나 관리자 권한을 해제할 수 없음
+    if user.id == current_user.id:
+        if getattr(user_in, "is_active", None) is False:
+            raise HTTPException(status_code=400, detail="자기 자신의 계정은 비활성화할 수 없습니다.")
+        if getattr(user_in, "role", None) is not None and user_in.role != user.role:
+            raise HTTPException(status_code=400, detail="자기 자신의 권한은 변경할 수 없습니다.")
+
     user = await crud_user.user.update(db=db, db_obj=user, obj_in=user_in)
     return ResponseEnvelope(data=UserOut.model_validate(user))
 
-@router.delete("/{id}", response_model=ResponseEnvelope)
+@router.delete("/{id}", response_model=ResponseEnvelope[UserOut])
 async def delete_user(
     *,
     db: AsyncSession = Depends(get_db),
     id: int,
     current_user: User = Depends(require_admin),
 ) -> Any:
-    """사용자를 비활성화 처리합니다 (논리 삭제) (ADMIN 전용)."""
+    """사용자를 삭제합니다 (하드 삭제) (ADMIN 전용)."""
     user = await crud_user.user.get(db=db, id=id)
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     
-    # 자기 자신은 비활성화 할 수 없음
+    # 자기 자신은 삭제 할 수 없음
     if user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="자기 자신의 계정은 비활성화할 수 없습니다.")
+        raise HTTPException(status_code=400, detail="자기 자신의 계정은 삭제할 수 없습니다.")
         
-    user_in = UserUpdate(is_active=False)
-    user = await crud_user.user.update(db=db, db_obj=user, obj_in=user_in)
+    user = await crud_user.user.remove(db=db, id=id)
     return ResponseEnvelope(data=UserOut.model_validate(user))

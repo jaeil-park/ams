@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
-import { Plus, Edit2, ShieldAlert, KeyRound, ShieldCheck, Mail, User as UserIcon } from '@lucide/vue'
+import { Plus, Edit2, ShieldAlert, KeyRound, ShieldCheck, Mail, User as UserIcon, Trash2 } from '@lucide/vue'
 
 import AppTable from '@/components/common/AppTable.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -123,7 +123,7 @@ const submitForm = async () => {
 const confirmDeactivate = async (user: User) => {
   if (confirm(`'${user.name}' 사용자를 비활성화하시겠습니까?`)) {
     try {
-      await api.delete(`/users/${user.id}`)
+      await api.patch(`/users/${user.id}`, { is_active: false })
       uiStore.addToast('사용자가 비활성화되었습니다.', 'success')
       fetchUsers()
     } catch (error: any) {
@@ -131,6 +131,23 @@ const confirmDeactivate = async (user: User) => {
         uiStore.addToast(error.response.data.detail, 'error')
       } else {
         uiStore.addToast('비활성화 처리에 실패했습니다.', 'error')
+      }
+    }
+  }
+}
+
+// Delete (Hard Delete)
+const confirmDelete = async (user: User) => {
+  if (confirm(`정말로 '${user.name}' 사용자를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+    try {
+      await api.delete(`/users/${user.id}`)
+      uiStore.addToast('사용자가 성공적으로 삭제되었습니다.', 'success')
+      fetchUsers()
+    } catch (error: any) {
+      if (error.response?.status === 400) {
+        uiStore.addToast(error.response.data.detail, 'error')
+      } else {
+        uiStore.addToast('삭제 처리에 실패했습니다.', 'error')
       }
     }
   }
@@ -204,8 +221,11 @@ const confirmDeactivate = async (user: User) => {
             <AppButton variant="ghost" size="sm" @click="openEditModal(item)">
               <Edit2 class="w-4 h-4" />
             </AppButton>
-            <AppButton v-if="item.is_active" variant="ghost" size="sm" class="text-red-600 hover:text-red-700 hover:bg-red-50" @click="confirmDeactivate(item)">
+            <AppButton v-if="item.is_active" variant="ghost" size="sm" class="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50" @click="confirmDeactivate(item)" title="비활성화">
               <ShieldAlert class="w-4 h-4" />
+            </AppButton>
+            <AppButton variant="ghost" size="sm" class="text-red-600 hover:text-red-700 hover:bg-red-50" @click="confirmDelete(item)" title="삭제">
+              <Trash2 class="w-4 h-4" />
             </AppButton>
           </div>
         </template>

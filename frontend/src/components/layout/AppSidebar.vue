@@ -6,13 +6,9 @@
     ]"
   >
     <!-- Logo area -->
-    <div class="h-[55px] px-4 border-b border-slate-800 flex items-center gap-2 overflow-hidden whitespace-nowrap">
-      <div class="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">
-        A
-      </div>
-      <span v-if="uiStore.isSidebarOpen" class="font-semibold text-white tracking-wide">
-        AMS ERP v1.0
-      </span>
+    <div class="h-[55px] px-4 border-b border-slate-800 flex items-center justify-center overflow-hidden whitespace-nowrap bg-white">
+      <img v-if="uiStore.isSidebarOpen" src="@/assets/logo.png" alt="Ezenuri Logo" class="h-8 object-contain" />
+      <img v-else src="/favicon.svg" alt="Ezenuri Logo" class="h-8 w-8 object-contain" />
     </div>
 
     <!-- Navigation Menu -->
@@ -90,6 +86,25 @@
               <span class="shrink-0" v-html="item.icon"></span>
               <span v-if="uiStore.isSidebarOpen">{{ item.label }}</span>
             </RouterLink>
+          </li>
+        </ul>
+      </div>
+
+      <!-- EXTERNAL LINKS -->
+      <div class="pt-2">
+        <div v-if="uiStore.isSidebarOpen" class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-4">
+          Family Sites
+        </div>
+        <ul class="space-y-1">
+          <li v-for="item in familyItems" :key="item.name">
+            <a
+              :href="item.href"
+              target="_blank"
+              class="flex items-center gap-3 px-3 py-2 text-base rounded-md transition-colors font-medium hover:bg-slate-800 hover:text-white"
+            >
+              <span class="shrink-0" v-html="item.icon"></span>
+              <span v-if="uiStore.isSidebarOpen">{{ item.label }}</span>
+            </a>
           </li>
         </ul>
       </div>
@@ -197,6 +212,21 @@ const adminItems = [
     label: '감사 로그',
     to: '/audit-logs',
     icon: `<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>`
+  }
+]
+
+const familyItems = [
+  {
+    name: 'homepage',
+    label: '공식홈페이지',
+    href: 'http://www.ezenuri.com',
+    icon: `<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>`
+  },
+  {
+    name: 'groupware',
+    label: '사내그룹웨어',
+    href: 'http://gw.ezenuri.com',
+    icon: `<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>`
   }
 ]
 </script>
