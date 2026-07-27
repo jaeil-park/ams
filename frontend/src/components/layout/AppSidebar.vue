@@ -87,6 +87,16 @@
               <span v-if="uiStore.isSidebarOpen">{{ item.label }}</span>
             </RouterLink>
           </li>
+          <li>
+            <a
+              href="/manual.html"
+              target="_blank"
+              class="flex items-center gap-3 px-3 py-2 text-base rounded-md transition-colors font-medium hover:bg-slate-800 hover:text-white"
+            >
+              <span class="shrink-0"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg></span>
+              <span v-if="uiStore.isSidebarOpen">사용 설명서</span>
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -109,6 +119,12 @@
         </ul>
       </div>
     </nav>
+
+    <!-- Version Footer -->
+    <div class="px-4 py-3 border-t border-slate-800 text-3xs text-slate-500 text-center shrink-0">
+      <span v-if="uiStore.isSidebarOpen">AMS ERP v{{ appVersion }}</span>
+      <span v-else>v{{ appVersion }}</span>
+    </div>
   </aside>
 </template>
 
@@ -122,6 +138,8 @@ import api from '@/utils/api'
 const route = useRoute()
 const uiStore = useUiStore()
 const authStore = useAuthStore()
+
+const appVersion = import.meta.env.VITE_APP_VERSION || '1.0.0'
 
 // 승인 대기 카운트
 const pendingCount = ref(0)
