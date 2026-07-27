@@ -165,10 +165,11 @@
         <!-- Customer Selection -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">고객사 선택</label>
-          <select 
+          <select
             required
             v-model="form.customer_id"
             class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+            @change="onCustomerChange"
           >
             <option value="" disabled>고객사를 선택하세요</option>
             <option v-for="c in activeCustomers" :key="c.id" :value="c.id">
@@ -176,11 +177,25 @@
             </option>
           </select>
         </div>
+        <!-- Contact Picker (registered contacts of the selected customer) -->
+        <div v-if="customerContacts.length > 0">
+          <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 선택 (등록된 담당자)</label>
+          <select
+            v-model="selectedContactId"
+            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+            @change="onContactSelect"
+          >
+            <option value="">직접 입력</option>
+            <option v-for="c in customerContacts" :key="c.id" :value="c.id">
+              {{ c.name }} ({{ c.phone || '연락처 없음' }})
+            </option>
+          </select>
+        </div>
         <!-- Manager -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">납품 담당자명</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             v-model="form.manager"
             placeholder="홍길동"
             class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
@@ -189,10 +204,20 @@
         <!-- Phone -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 연락처</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             v-model="form.phone"
             placeholder="010-1234-5678"
+            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+          />
+        </div>
+        <!-- Email -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 메일주소</label>
+          <input
+            type="email"
+            v-model="form.email"
+            placeholder="example@company.com"
             class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
           />
         </div>
@@ -278,10 +303,44 @@ const form = ref<any>({
   customer_id: '',
   manager: '',
   phone: '',
+  email: '',
   scheduled_date: '',
   location: '',
   status: 'WAITING'
 })
+
+// Registered contacts of the currently selected customer
+const customerContacts = ref<any[]>([])
+const selectedContactId = ref<number | ''>('')
+
+async function fetchCustomerContacts(customerId: number | string) {
+  if (!customerId) {
+    customerContacts.value = []
+    return
+  }
+  try {
+    const res = await api.get('/contacts', { params: { customer_id: customerId } })
+    customerContacts.value = res.data.data
+  } catch (error) {
+    console.error('담당자 목록 조회 실패:', error)
+    customerContacts.value = []
+  }
+}
+
+function onCustomerChange() {
+  selectedContactId.value = ''
+  fetchCustomerContacts(form.value.customer_id)
+}
+
+function onContactSelect() {
+  if (!selectedContactId.value) return
+  const contact = customerContacts.value.find(c => c.id === selectedContactId.value)
+  if (contact) {
+    form.value.manager = contact.name
+    form.value.phone = contact.phone || ''
+    form.value.email = contact.email || ''
+  }
+}
 
 onMounted(() => {
   fetchProjects()
@@ -354,10 +413,13 @@ function openCreateModal() {
     customer_id: '',
     manager: '',
     phone: '',
+    email: '',
     scheduled_date: '',
     location: '',
     status: 'WAITING'
   }
+  customerContacts.value = []
+  selectedContactId.value = ''
   isModalOpen.value = true
 }
 
@@ -370,10 +432,13 @@ function openEditModal(item: any) {
     customer_id: item.customer_id,
     manager: item.manager || '',
     phone: item.phone || '',
+    email: item.email || '',
     scheduled_date: item.scheduled_date || '',
     location: item.location || '',
     status: item.status
   }
+  selectedContactId.value = ''
+  fetchCustomerContacts(item.customer_id)
   isModalOpen.value = true
 }
 

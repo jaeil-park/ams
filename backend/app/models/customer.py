@@ -23,4 +23,5 @@ class Customer(Base, TimestampMixin):
 
     # Relationships
     addresses = relationship("Address", back_populates="customer", cascade="all, delete-orphan")
+    contacts = relationship("CustomerContact", back_populates="customer", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="customer")

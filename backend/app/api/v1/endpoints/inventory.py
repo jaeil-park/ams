@@ -209,7 +209,7 @@ async def update_inventory(
         resource_type="SERVER",
         resource_id=id,
         before=before_state,
-        after=obj_in.model_dump(exclude_unset=True),
+        after=obj_in.model_dump(exclude_unset=True, mode="json"),
     )
     return ResponseEnvelope(data=updated)
 

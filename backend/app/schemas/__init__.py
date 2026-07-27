@@ -3,6 +3,7 @@
 
 from app.schemas.common import ResponseEnvelope, MetaSchema, ErrorEnvelope
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
+from app.schemas.customer_contact import CustomerContactCreate, CustomerContactUpdate, CustomerContactOut
 from app.schemas.address import AddressCreate, AddressUpdate, AddressOut
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut
 from app.schemas.inventory import ServerInventoryCreate, ServerInventoryUpdate, ServerInventoryBulkCreate, ServerInventoryOut

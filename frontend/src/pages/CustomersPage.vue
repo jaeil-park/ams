@@ -135,7 +135,59 @@
           </select>
         </div>
       </form>
-      
+
+      <!-- Contacts Management (edit mode only — requires an existing customer_id) -->
+      <div v-if="isEditMode" class="mt-6 pt-4 border-t border-slate-200">
+        <label class="block text-xs font-semibold text-slate-500 mb-2">담당자 관리</label>
+
+        <div v-if="contacts.length === 0" class="text-xs text-slate-400 mb-3">
+          등록된 담당자가 없습니다.
+        </div>
+        <ul v-else class="space-y-2 mb-3">
+          <li
+            v-for="c in contacts"
+            :key="c.id"
+            class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-2"
+          >
+            <div class="flex-1 grid grid-cols-3 gap-2">
+              <span class="text-sm font-semibold text-slate-700 truncate">{{ c.name }}</span>
+              <span class="text-xs text-slate-500 font-mono truncate">{{ c.phone || '-' }}</span>
+              <span class="text-xs text-slate-500 truncate">{{ c.email || '-' }}</span>
+            </div>
+            <button
+              type="button"
+              class="text-slate-400 hover:text-red-600 transition-colors shrink-0"
+              title="담당자 삭제"
+              @click="deleteContact(c.id)"
+            >
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+          </li>
+        </ul>
+
+        <div class="grid grid-cols-3 gap-2">
+          <input
+            type="text"
+            v-model="newContact.name"
+            placeholder="담당자명"
+            class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            v-model="newContact.phone"
+            placeholder="연락처"
+            class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <input
+            type="email"
+            v-model="newContact.email"
+            placeholder="이메일"
+            class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <AppButton variant="secondary" class="mt-2 px-2 py-1 text-2xs" @click="addContact">+ 담당자 추가</AppButton>
+      </div>
+
       <template #footer>
         <AppButton variant="secondary" @click="closeModal">취소</AppButton>
         <AppButton variant="primary" :loading="submitLoading" @click="submitForm">
@@ -253,6 +305,8 @@ function openCreateModal() {
     phone: '',
     status: 'ACTIVE'
   }
+  contacts.value = []
+  newContact.value = { name: '', phone: '', email: '' }
   isModalOpen.value = true
 }
 
@@ -268,10 +322,51 @@ function openEditModal(item: any) {
     status: item.status
   }
   isModalOpen.value = true
+  fetchContacts(item.id)
 }
 
 function closeModal() {
   isModalOpen.value = false
+}
+
+// Contacts (per-customer) management
+const contacts = ref<any[]>([])
+const newContact = ref({ name: '', phone: '', email: '' })
+
+async function fetchContacts(customerId: number) {
+  try {
+    const res = await api.get('/contacts', { params: { customer_id: customerId } })
+    contacts.value = res.data.data
+  } catch (error) {
+    console.error('담당자 목록 조회 실패:', error)
+  }
+}
+
+async function addContact() {
+  if (!currentEditId.value) return
+  if (!newContact.value.name.trim()) {
+    uiStore.addToast('담당자명을 입력해 주세요.', 'warning')
+    return
+  }
+  try {
+    await api.post('/contacts', { customer_id: currentEditId.value, ...newContact.value })
+    newContact.value = { name: '', phone: '', email: '' }
+    fetchContacts(currentEditId.value)
+  } catch (error) {
+    console.error(error)
+    uiStore.addToast('담당자 추가 실패', 'error')
+  }
+}
+
+async function deleteContact(id: number) {
+  if (!confirm('이 담당자를 삭제하시겠습니까?')) return
+  try {
+    await api.delete(`/contacts/${id}`)
+    if (currentEditId.value) fetchContacts(currentEditId.value)
+  } catch (error) {
+    console.error(error)
+    uiStore.addToast('담당자 삭제 실패', 'error')
+  }
 }
 
 async function submitForm() {

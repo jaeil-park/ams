@@ -19,6 +19,7 @@ class Project(Base, TimestampMixin):
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
     manager: Mapped[str | None] = mapped_column(String(100), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="WAITING", nullable=False)  # WAITING, IN_PROGRESS, COMPLETED
     location: Mapped[str | None] = mapped_column(String(500), nullable=True)
     scheduled_date: Mapped[date | None] = mapped_column(Date, nullable=True)

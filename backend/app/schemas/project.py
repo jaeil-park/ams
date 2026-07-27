@@ -13,6 +13,7 @@ class ProjectBase(BaseModel):
     customer_id: int
     manager: str | None = Field(None, max_length=100)
     phone: str | None = Field(None, max_length=50)
+    email: str | None = Field(None, max_length=255)
     status: Literal["WAITING", "IN_PROGRESS", "COMPLETED"] = "WAITING"
     location: str | None = Field(None, max_length=500)
     scheduled_date: date | None = None
@@ -28,6 +29,7 @@ class ProjectUpdate(BaseModel):
     customer_id: int | None = None
     manager: str | None = Field(None, max_length=100)
     phone: str | None = Field(None, max_length=50)
+    email: str | None = Field(None, max_length=255)
     status: Literal["WAITING", "IN_PROGRESS", "COMPLETED"] | None = None
     location: str | None = Field(None, max_length=500)
     scheduled_date: date | None = None

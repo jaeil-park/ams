@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth,
     customers,
+    contacts,
     projects,
     inventory,
     parts,
@@ -24,6 +25,7 @@ api_router = APIRouter()
 # 각 도메인별 라우터 바인딩
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(customers.router, prefix="/customers", tags=["customers"])
+api_router.include_router(contacts.router, prefix="/contacts", tags=["contacts"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
 api_router.include_router(parts.router, prefix="/parts", tags=["parts"])

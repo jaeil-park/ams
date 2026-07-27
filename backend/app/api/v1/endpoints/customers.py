@@ -85,7 +85,7 @@ async def create_customer(
         action="CREATE",
         resource_type="CUSTOMER",
         resource_id=new_customer.id,
-        after=obj_in.model_dump(),
+        after=obj_in.model_dump(mode="json"),
     )
     return ResponseEnvelope(data=new_customer)
 
@@ -130,7 +130,7 @@ async def update_customer(
         resource_type="CUSTOMER",
         resource_id=id,
         before=before_state,
-        after=obj_in.model_dump(exclude_unset=True),
+        after=obj_in.model_dump(exclude_unset=True, mode="json"),
     )
     return ResponseEnvelope(data=updated)
 

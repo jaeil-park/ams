@@ -4,6 +4,7 @@
 from app.crud.base import CRUDBase
 from app.models.user import User
 from app.models.customer import Customer
+from app.models.customer_contact import CustomerContact
 from app.models.project import Project
 from app.models.server_inventory import ServerInventory
 from app.models.part_inventory import PartInventory
@@ -18,6 +19,7 @@ from typing import Any
 # 기본 CRUD 인스턴스들
 user = CRUDBase[User, Any, Any](User)
 customer = CRUDBase[Customer, Any, Any](Customer)
+customer_contact = CRUDBase[CustomerContact, Any, Any](CustomerContact)
 project = CRUDBase[Project, Any, Any](Project)
 server_inventory = CRUDBase[ServerInventory, Any, Any](ServerInventory)
 part_inventory = CRUDBase[PartInventory, Any, Any](PartInventory)
