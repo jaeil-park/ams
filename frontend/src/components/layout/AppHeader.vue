@@ -13,7 +13,7 @@
       </button>
 
       <!-- Breadcrumbs -->
-      <div class="flex items-center gap-2 text-sm font-semibold text-slate-500 select-none">
+      <div class="flex items-center gap-2 text-sm font-semibold text-slate-500 select-none whitespace-nowrap shrink-0">
         <span>AMS</span>
         <span>/</span>
         <span class="text-slate-900 capitalize">{{ currentPageLabel }}</span>
@@ -298,6 +298,7 @@ const currentPageLabel = computed(() => {
     deliveries: '납품이력',
     addresses: '납품주소',
     approvals: '승인 관리',
+    users: '사용자 관리',
     'audit-logs': '감사 로그',
   }
   return map[name] || name || '대시보드'

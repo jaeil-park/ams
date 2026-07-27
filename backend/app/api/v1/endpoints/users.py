@@ -10,7 +10,7 @@ from app.schemas.common import ResponseEnvelope
 
 router = APIRouter()
 
-@router.get("/", response_model=ResponseEnvelope[List[UserOut]])
+@router.get("", response_model=ResponseEnvelope[List[UserOut]])
 async def read_users(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
@@ -38,7 +38,7 @@ async def read_users(
         meta={"total": total, "page": page, "limit": limit, "total_pages": total_pages}
     )
 
-@router.post("/", response_model=ResponseEnvelope[UserOut])
+@router.post("", response_model=ResponseEnvelope[UserOut])
 async def create_user(
     *,
     db: AsyncSession = Depends(get_db),
