@@ -176,6 +176,38 @@
           </div>
         </div>
 
+        <div v-if="showDisk2" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">DISK 2 사양</label>
+            <input type="text" v-model="form.disk2_spec" placeholder="3.84TB NVMe SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">DISK 2 수량 & RAID</label>
+            <div class="flex gap-2">
+              <input type="number" v-model="form.disk2_qty" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="text" v-model="form.disk2_raid" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
+            </div>
+          </div>
+        </div>
+        <button
+          v-if="!showDisk2"
+          type="button"
+          class="text-blue-600 font-semibold hover:underline"
+          @click="showDisk2 = true"
+        >
+          + 디스크 사양 추가
+        </button>
+
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">비고</label>
+          <textarea
+            v-model="form.notes"
+            rows="2"
+            placeholder="특이사항을 입력하세요"
+            class="block w-full px-3 py-2 border border-slate-300 rounded-md"
+          ></textarea>
+        </div>
+
         <h4 class="font-bold text-slate-800 pb-1 border-b border-slate-100 pt-3">소속 프로젝트 및 네트워크 정보</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -245,8 +277,78 @@
             <input type="text" v-model="bulkForm.vendor" placeholder="DELL" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
           </div>
         </div>
+
+        <h4 class="font-bold text-slate-800 pb-1 border-b border-slate-100 pt-3">하드웨어 상세 사양</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">CPU 모델</label>
+            <input type="text" v-model="bulkForm.cpu_model" placeholder="Xeon Gold 6430" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">CPU 코어 수</label>
+            <input type="number" v-model="bulkForm.cpu_core" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">MEM 총 용량 (GB)</label>
+            <input type="number" v-model="bulkForm.mem_capacity" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">MEM 규격</label>
+            <input type="text" v-model="bulkForm.mem_gen" placeholder="DDR5 ECC" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">MEM 장착 개수</label>
+            <input type="number" v-model="bulkForm.mem_qty" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">DISK 1 사양</label>
+            <input type="text" v-model="bulkForm.disk1_spec" placeholder="1.92TB SATA SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">DISK 1 수량 & RAID</label>
+            <div class="flex gap-2">
+              <input type="number" v-model="bulkForm.disk1_qty" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="text" v-model="bulkForm.disk1_raid" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
+            </div>
+          </div>
+        </div>
+
+        <div v-if="showBulkDisk2" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">DISK 2 사양</label>
+            <input type="text" v-model="bulkForm.disk2_spec" placeholder="3.84TB NVMe SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-1">DISK 2 수량 & RAID</label>
+            <div class="flex gap-2">
+              <input type="number" v-model="bulkForm.disk2_qty" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="text" v-model="bulkForm.disk2_raid" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
+            </div>
+          </div>
+        </div>
+        <button
+          v-if="!showBulkDisk2"
+          type="button"
+          class="text-blue-600 font-semibold hover:underline"
+          @click="showBulkDisk2 = true"
+        >
+          + 디스크 사양 추가
+        </button>
+
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">비고</label>
+          <textarea
+            v-model="bulkForm.notes"
+            rows="2"
+            placeholder="특이사항을 입력하세요 (전체 대수 공통 적용)"
+            class="block w-full px-3 py-2 border border-slate-300 rounded-md"
+          ></textarea>
+        </div>
       </div>
-      
+
       <template #footer>
         <AppButton variant="secondary" @click="closeBulkModal">취소</AppButton>
         <AppButton variant="primary" :loading="submitLoading" @click="submitBulkForm">
@@ -309,6 +411,7 @@ const columns: ColumnDefinition[] = [
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const currentEditId = ref<number | null>(null)
+const showDisk2 = ref(false)
 const form = ref<any>({
   serial_tag: '',
   model: '',
@@ -323,17 +426,34 @@ const form = ref<any>({
   mem_qty: null,
   disk1_spec: '',
   disk1_qty: null,
-  disk1_raid: ''
+  disk1_raid: '',
+  disk2_spec: '',
+  disk2_qty: null,
+  disk2_raid: '',
+  notes: ''
 })
 
 // Modal Form State (Bulk)
 const isBulkModalOpen = ref(false)
+const showBulkDisk2 = ref(false)
 const bulkSerialsText = ref('')
 const bulkForm = ref<any>({
   model: '',
   vendor: 'DELL',
   status: 'IN_STOCK',
-  project_id: null
+  project_id: null,
+  cpu_model: '',
+  cpu_core: null,
+  mem_capacity: null,
+  mem_gen: 'DDR5 ECC',
+  mem_qty: null,
+  disk1_spec: '',
+  disk1_qty: null,
+  disk1_raid: '',
+  disk2_spec: '',
+  disk2_qty: null,
+  disk2_raid: '',
+  notes: ''
 })
 
 // Detail modal state
@@ -404,6 +524,7 @@ function handleSort(payload: { key: string; order: 'asc' | 'desc' }) {
 function openCreateModal() {
   isEditMode.value = false
   currentEditId.value = null
+  showDisk2.value = false
   form.value = {
     serial_tag: '',
     model: '',
@@ -418,7 +539,11 @@ function openCreateModal() {
     mem_qty: null,
     disk1_spec: '',
     disk1_qty: null,
-    disk1_raid: ''
+    disk1_raid: '',
+    disk2_spec: '',
+    disk2_qty: null,
+    disk2_raid: '',
+    notes: ''
   }
   isModalOpen.value = true
 }
@@ -440,8 +565,13 @@ function openEditModal(item: any) {
     mem_qty: item.mem_qty || null,
     disk1_spec: item.disk1_spec || '',
     disk1_qty: item.disk1_qty || null,
-    disk1_raid: item.disk1_raid || ''
+    disk1_raid: item.disk1_raid || '',
+    disk2_spec: item.disk2_spec || '',
+    disk2_qty: item.disk2_qty || null,
+    disk2_raid: item.disk2_raid || '',
+    notes: item.notes || ''
   }
+  showDisk2.value = !!(item.disk2_spec || item.disk2_qty || item.disk2_raid)
   isModalOpen.value = true
 }
 
@@ -474,11 +604,24 @@ async function submitForm() {
 // Bulk edit workflow
 function openBulkModal() {
   bulkSerialsText.value = ''
+  showBulkDisk2.value = false
   bulkForm.value = {
     model: '',
     vendor: 'DELL',
     status: 'IN_STOCK',
-    project_id: null
+    project_id: null,
+    cpu_model: '',
+    cpu_core: null,
+    mem_capacity: null,
+    mem_gen: 'DDR5 ECC',
+    mem_qty: null,
+    disk1_spec: '',
+    disk1_qty: null,
+    disk1_raid: '',
+    disk2_spec: '',
+    disk2_qty: null,
+    disk2_raid: '',
+    notes: ''
   }
   isBulkModalOpen.value = true
 }

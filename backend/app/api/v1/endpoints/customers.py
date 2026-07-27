@@ -61,22 +61,26 @@ async def list_customers(
     )
 
 
+async def _generate_customer_code(db: AsyncSession) -> str:
+    """'C00001' 형식의 고객사 코드를 자동 생성합니다 (기존 코드와 중복되지 않는 값)."""
+    count_result = await db.execute(select(func.count(models.Customer.id)))
+    seq = (count_result.scalar() or 0) + 1
+    while True:
+        candidate = f"C{seq:05d}"
+        exists = await db.execute(select(models.Customer).where(models.Customer.code == candidate))
+        if not exists.scalars().first():
+            return candidate
+        seq += 1
+
+
 @router.post("", response_model=ResponseEnvelope[schemas.customer.CustomerOut], status_code=status.HTTP_201_CREATED)
 async def create_customer(
     obj_in: schemas.customer.CustomerCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """신규 고객사 등록 (코드 중복검사 수행)"""
-    code_check = await db.execute(select(models.Customer).where(
-        models.Customer.code == obj_in.code,
-        models.Customer.is_deleted == False
-    ))
-    if code_check.scalars().first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 존재하는 고객사 코드입니다."
-        )
+    """신규 고객사 등록 (코드는 서버에서 자동 배정)"""
+    obj_in.code = await _generate_customer_code(db)
 
     new_customer = await crud.customer.create(db, obj_in=obj_in)
     await log_action(

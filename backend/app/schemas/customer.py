@@ -16,8 +16,14 @@ class CustomerBase(BaseModel):
     status: Literal["ACTIVE", "INACTIVE"] = "ACTIVE"
 
 
-class CustomerCreate(CustomerBase):
-    pass
+class CustomerCreate(BaseModel):
+    # code는 서버에서 자동 생성 — 요청에 포함되어도 무시됩니다.
+    code: str | None = Field(None, max_length=50)
+    name: str = Field(..., min_length=1, max_length=100)
+    biz_no: str | None = Field(None, max_length=50)
+    manager: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=50)
+    status: Literal["ACTIVE", "INACTIVE"] = "ACTIVE"
 
 
 class CustomerUpdate(BaseModel):

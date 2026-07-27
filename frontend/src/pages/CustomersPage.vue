@@ -70,16 +70,14 @@
       @close="closeModal"
     >
       <form class="space-y-4" @submit.prevent="submitForm">
-        <!-- Code -->
+        <!-- Code (server-assigned) -->
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">고객사 코드 (Unique)</label>
-          <input 
-            type="text" 
-            required 
-            v-model="form.code"
-            :disabled="isEditMode"
-            placeholder="예: DAEWOONG, LINE"
-            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
+          <label class="block text-xs font-semibold text-slate-500 mb-1">고객사 코드</label>
+          <input
+            type="text"
+            disabled
+            :value="isEditMode ? form.code : '등록 시 자동 배정됩니다'"
+            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-slate-50 text-slate-400 focus:outline-none"
           />
         </div>
         <!-- Name -->

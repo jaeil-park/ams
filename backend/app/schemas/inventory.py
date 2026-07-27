@@ -45,6 +45,7 @@ class ServerInventoryBase(BaseModel):
     
     address_id: int | None = None
     history: dict | None = None
+    notes: str | None = Field(None, max_length=2000)
 
 
 class ServerInventoryCreate(ServerInventoryBase):
@@ -85,6 +86,7 @@ class ServerInventoryUpdate(BaseModel):
     
     address_id: int | None = None
     history: dict | None = None
+    notes: str | None = Field(None, max_length=2000)
 
 
 class ServerInventoryBulkCreate(BaseModel):

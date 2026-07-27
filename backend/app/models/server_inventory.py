@@ -51,6 +51,7 @@ class ServerInventory(Base, TimestampMixin):
     
     address_id: Mapped[int | None] = mapped_column(ForeignKey("addresses.id"), nullable=True)
     history: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
