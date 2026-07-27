@@ -2,6 +2,10 @@
 FROM node:20-alpine AS builder
 LABEL stage=builder
 
+# ─── 릴리즈 버전 (CI에서 --build-arg APP_VERSION=x.y.z 로 주입) ─────────────────
+ARG APP_VERSION=0.0.0
+ENV VITE_APP_VERSION=${APP_VERSION}
+
 WORKDIR /app
 
 # package.json 먼저 복사 → 의존성 레이어 캐시 최적화

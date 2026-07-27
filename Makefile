@@ -9,7 +9,9 @@
 REGISTRY       := 192.168.0.22:5000
 IMAGE_FRONTEND := $(REGISTRY)/ams-frontend
 IMAGE_BACKEND  := $(REGISTRY)/ams-backend
-TAG            := latest
+# 릴리즈 버전 (루트 VERSION 파일이 단일 소스) — 릴리즈마다 VERSION 파일을 올릴 것
+APP_VERSION    := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
+TAG            := $(APP_VERSION)
 
 COMPOSE_DEV    := docker compose -f infra/docker-compose.yml
 COMPOSE_PROD   := docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod
@@ -56,13 +58,13 @@ dev-down:
 build: build-frontend build-backend
 
 build-frontend:
-	@echo "▶ Frontend 이미지 빌드..."
-	docker build -t $(IMAGE_FRONTEND):$(TAG) ./frontend
+	@echo "▶ Frontend 이미지 빌드 (v$(APP_VERSION))..."
+	docker build --build-arg APP_VERSION=$(APP_VERSION) -t $(IMAGE_FRONTEND):$(TAG) -t $(IMAGE_FRONTEND):latest ./frontend
 	@echo "✓ $(IMAGE_FRONTEND):$(TAG)"
 
 build-backend:
-	@echo "▶ Backend 이미지 빌드..."
-	docker build -t $(IMAGE_BACKEND):$(TAG) ./backend
+	@echo "▶ Backend 이미지 빌드 (v$(APP_VERSION))..."
+	docker build --build-arg APP_VERSION=$(APP_VERSION) -t $(IMAGE_BACKEND):$(TAG) -t $(IMAGE_BACKEND):latest ./backend
 	@echo "✓ $(IMAGE_BACKEND):$(TAG)"
 
 # ─── Registry 푸시 ──────────────────────────────────────────────────────────────
@@ -71,10 +73,12 @@ push: push-frontend push-backend
 push-frontend:
 	@echo "▶ Frontend 이미지 푸시 → $(REGISTRY)..."
 	docker push $(IMAGE_FRONTEND):$(TAG)
+	docker push $(IMAGE_FRONTEND):latest
 
 push-backend:
 	@echo "▶ Backend 이미지 푸시 → $(REGISTRY)..."
 	docker push $(IMAGE_BACKEND):$(TAG)
+	docker push $(IMAGE_BACKEND):latest
 
 # ─── 운영 환경 ──────────────────────────────────────────────────────────────────
 prod:

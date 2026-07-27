@@ -1,5 +1,9 @@
 FROM python:3.12-slim
 
+# ─── 릴리즈 버전 (CI에서 --build-arg APP_VERSION=x.y.z 로 주입) ─────────────────
+ARG APP_VERSION=0.0.0
+ENV APP_VERSION=${APP_VERSION}
+
 # ─── 시스템 의존성 ─────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

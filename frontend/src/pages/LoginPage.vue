@@ -9,7 +9,7 @@
         AMS ERP 로그인
       </h2>
       <p class="mt-2 text-center text-xs text-slate-400">
-        IT 자산 관리 시스템 v1.0.0
+        IT 자산 관리 시스템 v{{ appVersion }}
       </p>
     </div>
 
@@ -92,6 +92,8 @@ import AppButton from '@/components/common/AppButton.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+const appVersion = import.meta.env.VITE_APP_VERSION || '1.0.0'
 
 const email = ref('')
 const password = ref('')
