@@ -20,6 +20,7 @@ class PartUsage(Base, TimestampMixin):
     location: Mapped[str | None] = mapped_column(String(200), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     qty: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    po_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Relationships
     part = relationship("PartInventory", back_populates="usages")

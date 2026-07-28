@@ -98,7 +98,21 @@
         <!-- Category -->
         <div>
           <label class="block font-semibold text-slate-500 mb-1">카테고리</label>
-          <input type="text" v-model="form.category" placeholder="PART" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          <select
+            v-model="categorySelect"
+            class="block w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+            @change="onCategorySelectChange"
+          >
+            <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
+            <option value="__custom__">+ 직접 입력</option>
+          </select>
+          <input
+            v-if="categorySelect === '__custom__'"
+            type="text"
+            v-model="form.category"
+            placeholder="예: HBA, TRANSCEIVER"
+            class="block w-full mt-2 px-3 py-2 border border-slate-300 rounded-md"
+          />
         </div>
         <!-- Qty -->
         <div>
@@ -161,6 +175,11 @@
         <div>
           <label class="block font-semibold text-slate-500 mb-1">사용 출고 수량 *</label>
           <input type="number" required v-model="usageForm.qty" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+        </div>
+        <!-- PO/PR Number (단품/Percall 납품 시) -->
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">PO/PR 번호</label>
+          <input type="text" v-model="usageForm.po_number" placeholder="단품 또는 Percall 납품 시 입력" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
         </div>
         <!-- Location -->
         <div>
@@ -233,6 +252,8 @@ const columns: ColumnDefinition[] = [
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const currentEditId = ref<number | null>(null)
+const categoryOptions = ['DISK', 'CPU', 'MEM', 'NIC', 'PSU', 'GPU', 'PART']
+const categorySelect = ref('PART')
 const form = ref<any>({
   model: '',
   category: 'PART',
@@ -243,6 +264,14 @@ const form = ref<any>({
   project_id: null
 })
 
+function onCategorySelectChange() {
+  if (categorySelect.value !== '__custom__') {
+    form.value.category = categorySelect.value
+  } else {
+    form.value.category = ''
+  }
+}
+
 // Usage Modal state
 const isUsageModalOpen = ref(false)
 const selectedPart = ref<any>(null)
@@ -250,7 +279,8 @@ const usageForm = ref<any>({
   qty: 1,
   customer_id: '',
   location: '',
-  reason: ''
+  reason: '',
+  po_number: ''
 })
 
 // History modal state
@@ -331,6 +361,7 @@ function handlePageChange(newPage: number) {
 function openCreateModal() {
   isEditMode.value = false
   currentEditId.value = null
+  categorySelect.value = 'PART'
   form.value = {
     model: '',
     category: 'PART',
@@ -346,9 +377,11 @@ function openCreateModal() {
 function openEditModal(item: any) {
   isEditMode.value = true
   currentEditId.value = item.id
+  const category = item.category || 'PART'
+  categorySelect.value = categoryOptions.includes(category) ? category : '__custom__'
   form.value = {
     model: item.model,
-    category: item.category || 'PART',
+    category,
     qty: item.qty,
     status: item.status,
     purchase_date: item.purchase_date || '',
@@ -393,7 +426,8 @@ function openUsageModal(item: any) {
     qty: 1,
     customer_id: '',
     location: '',
-    reason: ''
+    reason: '',
+    po_number: ''
   }
   isUsageModalOpen.value = true
 }
@@ -421,9 +455,10 @@ async function submitUsage() {
       closeUsageModal()
       fetchParts()
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
-    uiStore.addToast('출고 등록 실패', 'error')
+    const errDetail = error.response?.data?.detail || '출고 등록 실패'
+    uiStore.addToast(errDetail, 'error')
   } finally {
     submitLoading.value = false
   }

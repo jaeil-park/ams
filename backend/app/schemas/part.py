@@ -44,11 +44,12 @@ class PartInventoryOut(PartInventoryBase):
 # ─── Part Usage ──────────────────────────────────
 class PartUsageBase(BaseModel):
     part_id: int
-    used_date: date
+    used_date: date | None = None
     customer_id: int
     location: str | None = Field(None, max_length=200)
     reason: str | None = Field(None, max_length=500)
     qty: int = Field(1, gt=0)
+    po_number: str | None = Field(None, max_length=100)
 
 
 class PartUsageCreate(PartUsageBase):

@@ -176,26 +176,39 @@
           </div>
         </div>
 
-        <div v-if="showDisk2" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div v-for="n in extraDiskSlots" :key="n" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block font-semibold text-slate-500 mb-1">DISK 2 사양</label>
-            <input type="text" v-model="form.disk2_spec" placeholder="3.84TB NVMe SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+            <label class="block font-semibold text-slate-500 mb-1">DISK {{ n }} 사양</label>
+            <input type="text" v-model="form[`disk${n}_spec`]" placeholder="3.84TB NVMe SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-500 mb-1">DISK 2 수량 & RAID</label>
+            <label class="block font-semibold text-slate-500 mb-1">DISK {{ n }} 수량 & RAID</label>
             <div class="flex gap-2">
-              <input type="number" v-model="form.disk2_qty" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
-              <input type="text" v-model="form.disk2_raid" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="number" v-model="form[`disk${n}_qty`]" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="text" v-model="form[`disk${n}_raid`]" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
             </div>
           </div>
         </div>
         <button
-          v-if="!showDisk2"
+          v-if="diskCount < 5"
           type="button"
           class="text-blue-600 font-semibold hover:underline"
-          @click="showDisk2 = true"
+          @click="diskCount++"
         >
-          + 디스크 사양 추가
+          + 디스크 사양 추가 ({{ diskCount }}/5)
+        </button>
+
+        <h4 class="font-bold text-slate-800 pb-1 border-b border-slate-100 pt-3">추가 파트 (NIC, HBA, GPU 등)</h4>
+        <div v-for="(part, idx) in form.extra_parts" :key="idx" class="flex gap-2 items-center">
+          <input type="text" v-model="part.name" placeholder="부품명 (예: NIC)" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+          <input type="text" v-model="part.spec" placeholder="사양" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+          <input type="number" v-model="part.qty" placeholder="수량" class="block w-1/6 px-3 py-2 border border-slate-300 rounded-md" />
+          <button type="button" class="text-slate-400 hover:text-red-600 shrink-0" title="삭제" @click="form.extra_parts.splice(idx, 1)">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <button type="button" class="text-blue-600 font-semibold hover:underline" @click="form.extra_parts.push({ name: '', spec: '', qty: 1 })">
+          + 파트 추가
         </button>
 
         <div>
@@ -316,26 +329,39 @@
           </div>
         </div>
 
-        <div v-if="showBulkDisk2" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div v-for="n in extraBulkDiskSlots" :key="n" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block font-semibold text-slate-500 mb-1">DISK 2 사양</label>
-            <input type="text" v-model="bulkForm.disk2_spec" placeholder="3.84TB NVMe SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+            <label class="block font-semibold text-slate-500 mb-1">DISK {{ n }} 사양</label>
+            <input type="text" v-model="bulkForm[`disk${n}_spec`]" placeholder="3.84TB NVMe SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-500 mb-1">DISK 2 수량 & RAID</label>
+            <label class="block font-semibold text-slate-500 mb-1">DISK {{ n }} 수량 & RAID</label>
             <div class="flex gap-2">
-              <input type="number" v-model="bulkForm.disk2_qty" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
-              <input type="text" v-model="bulkForm.disk2_raid" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="number" v-model="bulkForm[`disk${n}_qty`]" placeholder="개수" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+              <input type="text" v-model="bulkForm[`disk${n}_raid`]" placeholder="RAID 1" class="block w-2/3 px-3 py-2 border border-slate-300 rounded-md" />
             </div>
           </div>
         </div>
         <button
-          v-if="!showBulkDisk2"
+          v-if="bulkDiskCount < 5"
           type="button"
           class="text-blue-600 font-semibold hover:underline"
-          @click="showBulkDisk2 = true"
+          @click="bulkDiskCount++"
         >
-          + 디스크 사양 추가
+          + 디스크 사양 추가 ({{ bulkDiskCount }}/5)
+        </button>
+
+        <h4 class="font-bold text-slate-800 pb-1 border-b border-slate-100 pt-3">추가 파트 (NIC, HBA, GPU 등)</h4>
+        <div v-for="(part, idx) in bulkForm.extra_parts" :key="idx" class="flex gap-2 items-center">
+          <input type="text" v-model="part.name" placeholder="부품명 (예: NIC)" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+          <input type="text" v-model="part.spec" placeholder="사양" class="block w-1/3 px-3 py-2 border border-slate-300 rounded-md" />
+          <input type="number" v-model="part.qty" placeholder="수량" class="block w-1/6 px-3 py-2 border border-slate-300 rounded-md" />
+          <button type="button" class="text-slate-400 hover:text-red-600 shrink-0" title="삭제" @click="bulkForm.extra_parts.splice(idx, 1)">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <button type="button" class="text-blue-600 font-semibold hover:underline" @click="bulkForm.extra_parts.push({ name: '', spec: '', qty: 1 })">
+          + 파트 추가
         </button>
 
         <div>
@@ -369,7 +395,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
 import AppButton from '@/components/common/AppButton.vue'
@@ -411,7 +437,32 @@ const columns: ColumnDefinition[] = [
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const currentEditId = ref<number | null>(null)
-const showDisk2 = ref(false)
+const diskCount = ref(1)
+const extraDiskSlots = computed(() => {
+  const slots = []
+  for (let n = 2; n <= diskCount.value; n++) slots.push(n)
+  return slots
+})
+
+function emptyDiskFields() {
+  const fields: any = {}
+  for (let n = 1; n <= 5; n++) {
+    fields[`disk${n}_spec`] = ''
+    fields[`disk${n}_qty`] = null
+    fields[`disk${n}_raid`] = ''
+  }
+  return fields
+}
+
+// item에 채워진 disk 슬롯 중 가장 큰 번호를 반환 (최소 1)
+function highestFilledDiskSlot(item: any) {
+  let max = 1
+  for (let n = 2; n <= 5; n++) {
+    if (item[`disk${n}_spec`] || item[`disk${n}_qty`] || item[`disk${n}_raid`]) max = n
+  }
+  return max
+}
+
 const form = ref<any>({
   serial_tag: '',
   model: '',
@@ -424,18 +475,19 @@ const form = ref<any>({
   mem_capacity: null,
   mem_gen: 'DDR5 ECC',
   mem_qty: null,
-  disk1_spec: '',
-  disk1_qty: null,
-  disk1_raid: '',
-  disk2_spec: '',
-  disk2_qty: null,
-  disk2_raid: '',
+  ...emptyDiskFields(),
+  extra_parts: [] as any[],
   notes: ''
 })
 
 // Modal Form State (Bulk)
 const isBulkModalOpen = ref(false)
-const showBulkDisk2 = ref(false)
+const bulkDiskCount = ref(1)
+const extraBulkDiskSlots = computed(() => {
+  const slots = []
+  for (let n = 2; n <= bulkDiskCount.value; n++) slots.push(n)
+  return slots
+})
 const bulkSerialsText = ref('')
 const bulkForm = ref<any>({
   model: '',
@@ -447,12 +499,8 @@ const bulkForm = ref<any>({
   mem_capacity: null,
   mem_gen: 'DDR5 ECC',
   mem_qty: null,
-  disk1_spec: '',
-  disk1_qty: null,
-  disk1_raid: '',
-  disk2_spec: '',
-  disk2_qty: null,
-  disk2_raid: '',
+  ...emptyDiskFields(),
+  extra_parts: [] as any[],
   notes: ''
 })
 
@@ -524,7 +572,7 @@ function handleSort(payload: { key: string; order: 'asc' | 'desc' }) {
 function openCreateModal() {
   isEditMode.value = false
   currentEditId.value = null
-  showDisk2.value = false
+  diskCount.value = 1
   form.value = {
     serial_tag: '',
     model: '',
@@ -537,12 +585,8 @@ function openCreateModal() {
     mem_capacity: null,
     mem_gen: 'DDR5 ECC',
     mem_qty: null,
-    disk1_spec: '',
-    disk1_qty: null,
-    disk1_raid: '',
-    disk2_spec: '',
-    disk2_qty: null,
-    disk2_raid: '',
+    ...emptyDiskFields(),
+    extra_parts: [],
     notes: ''
   }
   isModalOpen.value = true
@@ -551,6 +595,12 @@ function openCreateModal() {
 function openEditModal(item: any) {
   isEditMode.value = true
   currentEditId.value = item.id
+  const diskFields: any = {}
+  for (let n = 1; n <= 5; n++) {
+    diskFields[`disk${n}_spec`] = item[`disk${n}_spec`] || ''
+    diskFields[`disk${n}_qty`] = item[`disk${n}_qty`] || null
+    diskFields[`disk${n}_raid`] = item[`disk${n}_raid`] || ''
+  }
   form.value = {
     serial_tag: item.serial_tag,
     model: item.model,
@@ -563,15 +613,11 @@ function openEditModal(item: any) {
     mem_capacity: item.mem_capacity || null,
     mem_gen: item.mem_gen || 'DDR5 ECC',
     mem_qty: item.mem_qty || null,
-    disk1_spec: item.disk1_spec || '',
-    disk1_qty: item.disk1_qty || null,
-    disk1_raid: item.disk1_raid || '',
-    disk2_spec: item.disk2_spec || '',
-    disk2_qty: item.disk2_qty || null,
-    disk2_raid: item.disk2_raid || '',
+    ...diskFields,
+    extra_parts: item.extra_parts ? item.extra_parts.map((p: any) => ({ ...p })) : [],
     notes: item.notes || ''
   }
-  showDisk2.value = !!(item.disk2_spec || item.disk2_qty || item.disk2_raid)
+  diskCount.value = highestFilledDiskSlot(item)
   isModalOpen.value = true
 }
 
@@ -604,7 +650,7 @@ async function submitForm() {
 // Bulk edit workflow
 function openBulkModal() {
   bulkSerialsText.value = ''
-  showBulkDisk2.value = false
+  bulkDiskCount.value = 1
   bulkForm.value = {
     model: '',
     vendor: 'DELL',
@@ -615,12 +661,8 @@ function openBulkModal() {
     mem_capacity: null,
     mem_gen: 'DDR5 ECC',
     mem_qty: null,
-    disk1_spec: '',
-    disk1_qty: null,
-    disk1_raid: '',
-    disk2_spec: '',
-    disk2_qty: null,
-    disk2_raid: '',
+    ...emptyDiskFields(),
+    extra_parts: [],
     notes: ''
   }
   isBulkModalOpen.value = true

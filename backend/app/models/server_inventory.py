@@ -40,9 +40,21 @@ class ServerInventory(Base, TimestampMixin):
     disk2_spec: Mapped[str | None] = mapped_column(String(100), nullable=True)
     disk2_qty: Mapped[int | None] = mapped_column(Integer, nullable=True)
     disk2_raid: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    
+    disk3_spec: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    disk3_qty: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    disk3_raid: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    disk4_spec: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    disk4_qty: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    disk4_raid: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    disk5_spec: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    disk5_qty: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    disk5_raid: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     nic1: Mapped[str | None] = mapped_column(String(100), nullable=True)
     nic2: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # 추가 파트 (NIC/HBA/GPU 등 자유 형식 부품 목록) — [{name, spec, qty}, ...]
+    extra_parts: Mapped[list | None] = mapped_column(JSON, nullable=True)
     
     # Firmware versions
     bios_ver: Mapped[str | None] = mapped_column(String(50), nullable=True)

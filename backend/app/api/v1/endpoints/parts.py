@@ -118,7 +118,8 @@ async def create_part_usage(
         customer_id=obj_in.customer_id,
         location=obj_in.location,
         reason=obj_in.reason,
-        qty=obj_in.qty
+        qty=obj_in.qty,
+        po_number=obj_in.po_number
     )
     db.add(new_usage)
     await db.commit()

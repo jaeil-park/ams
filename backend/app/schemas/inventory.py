@@ -34,15 +34,25 @@ class ServerInventoryBase(BaseModel):
     disk2_spec: str | None = Field(None, max_length=100)
     disk2_qty: int | None = None
     disk2_raid: str | None = Field(None, max_length=50)
-    
+    disk3_spec: str | None = Field(None, max_length=100)
+    disk3_qty: int | None = None
+    disk3_raid: str | None = Field(None, max_length=50)
+    disk4_spec: str | None = Field(None, max_length=100)
+    disk4_qty: int | None = None
+    disk4_raid: str | None = Field(None, max_length=50)
+    disk5_spec: str | None = Field(None, max_length=100)
+    disk5_qty: int | None = None
+    disk5_raid: str | None = Field(None, max_length=50)
+
     nic1: str | None = Field(None, max_length=100)
     nic2: str | None = Field(None, max_length=100)
-    
+    extra_parts: list[dict] | None = None
+
     # Firmware
     bios_ver: str | None = Field(None, max_length=50)
     idrac_ver: str | None = Field(None, max_length=50)
     raid_ver: str | None = Field(None, max_length=50)
-    
+
     address_id: int | None = None
     history: dict | None = None
     notes: str | None = Field(None, max_length=2000)
@@ -76,14 +86,24 @@ class ServerInventoryUpdate(BaseModel):
     disk2_spec: str | None = Field(None, max_length=100)
     disk2_qty: int | None = None
     disk2_raid: str | None = Field(None, max_length=50)
-    
+    disk3_spec: str | None = Field(None, max_length=100)
+    disk3_qty: int | None = None
+    disk3_raid: str | None = Field(None, max_length=50)
+    disk4_spec: str | None = Field(None, max_length=100)
+    disk4_qty: int | None = None
+    disk4_raid: str | None = Field(None, max_length=50)
+    disk5_spec: str | None = Field(None, max_length=100)
+    disk5_qty: int | None = None
+    disk5_raid: str | None = Field(None, max_length=50)
+
     nic1: str | None = Field(None, max_length=100)
     nic2: str | None = Field(None, max_length=100)
-    
+    extra_parts: list[dict] | None = None
+
     bios_ver: str | None = Field(None, max_length=50)
     idrac_ver: str | None = Field(None, max_length=50)
     raid_ver: str | None = Field(None, max_length=50)
-    
+
     address_id: int | None = None
     history: dict | None = None
     notes: str | None = Field(None, max_length=2000)

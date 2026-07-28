@@ -139,8 +139,15 @@
           <div class="sm:col-span-2" v-if="server.disk2_spec">
             <span class="text-slate-400 font-semibold">DISK 2:</span>
             <span class="ml-1 text-slate-800 font-medium">
-              {{ server.disk2_spec }} {{ server.disk2_qty ? `x ${server.disk2_qty}개` : '' }} 
+              {{ server.disk2_spec }} {{ server.disk2_qty ? `x ${server.disk2_qty}개` : '' }}
               {{ server.disk2_raid ? `(RAID ${server.disk2_raid})` : '' }}
+            </span>
+          </div>
+          <div class="sm:col-span-2" v-for="n in [3, 4, 5]" :key="n" v-show="server[`disk${n}_spec`]">
+            <span class="text-slate-400 font-semibold">DISK {{ n }}:</span>
+            <span class="ml-1 text-slate-800 font-medium">
+              {{ server[`disk${n}_spec`] }} {{ server[`disk${n}_qty`] ? `x ${server[`disk${n}_qty`]}개` : '' }}
+              {{ server[`disk${n}_raid`] ? `(RAID ${server[`disk${n}_raid`]})` : '' }}
             </span>
           </div>
           <div>
@@ -150,6 +157,16 @@
           <div>
             <span class="text-slate-400 font-semibold">NIC 2:</span>
             <span class="ml-1 text-slate-800 font-medium">{{ server.nic2 || '-' }}</span>
+          </div>
+          <div class="sm:col-span-3" v-if="server.extra_parts && server.extra_parts.length">
+            <span class="text-slate-400 font-semibold">추가 파트:</span>
+            <span class="ml-1 text-slate-800 font-medium">
+              {{ server.extra_parts.map((p: any) => `${p.name}${p.spec ? ' ' + p.spec : ''}${p.qty ? ` x${p.qty}` : ''}`).join(', ') }}
+            </span>
+          </div>
+          <div class="sm:col-span-3" v-if="server.notes">
+            <span class="text-slate-400 font-semibold">비고:</span>
+            <span class="ml-1 text-slate-800 font-medium whitespace-pre-wrap">{{ server.notes }}</span>
           </div>
         </div>
       </div>
