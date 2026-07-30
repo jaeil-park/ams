@@ -194,6 +194,9 @@
               @change="onContactSelect"
             >
               <option value="">직접 입력</option>
+              <option v-if="primaryContactOption" :value="primaryContactOption.id">
+                {{ primaryContactOption.name }} ({{ primaryContactOption.phone || '연락처 없음' }}) — 기본 담당자
+              </option>
               <option v-for="c in customerContacts" :key="c.id" :value="c.id">
                 {{ c.name }} ({{ c.phone || '연락처 없음' }})
               </option>
@@ -289,7 +292,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
 import AppButton from '@/components/common/AppButton.vue'
@@ -335,8 +338,18 @@ const form = ref<any>({
 
 // Registered contacts of the currently selected customer
 const customerContacts = ref<any[]>([])
-const selectedContactId = ref<number | '' | '__new__'>('')
+const selectedContactId = ref<number | '' | '__new__' | 'primary'>('')
 const newContact = ref({ name: '', phone: '', email: '' })
+
+// 고객사 등록 화면의 "담당자 성함/연락처"(기본 담당자, customer_contacts와 별개인 레거시 필드)를
+// 담당자 목록에 자동 포함시켜, 별도로 담당자 관리에 등록하지 않았어도 선택할 수 있게 한다.
+const primaryContactOption = computed(() => {
+  const customer = activeCustomers.value.find(c => c.id === form.value.customer_id)
+  if (!customer?.manager) return null
+  const alreadyListed = customerContacts.value.some(c => c.name === customer.manager)
+  if (alreadyListed) return null
+  return { id: 'primary', name: customer.manager, phone: customer.phone || '' }
+})
 
 async function fetchCustomerContacts(customerId: number | string) {
   if (!customerId) {
@@ -361,6 +374,14 @@ function onContactSelect() {
   if (!selectedContactId.value || selectedContactId.value === '__new__') {
     if (selectedContactId.value === '__new__') {
       newContact.value = { name: '', phone: '', email: '' }
+    }
+    return
+  }
+  if (selectedContactId.value === 'primary') {
+    if (primaryContactOption.value) {
+      form.value.manager = primaryContactOption.value.name
+      form.value.phone = primaryContactOption.value.phone
+      form.value.email = ''
     }
     return
   }
