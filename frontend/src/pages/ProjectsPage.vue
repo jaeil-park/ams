@@ -177,49 +177,73 @@
             </option>
           </select>
         </div>
-        <!-- Contact Picker (registered contacts of the selected customer) -->
-        <div v-if="customerContacts.length > 0">
-          <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 선택 (등록된 담당자)</label>
-          <select
-            v-model="selectedContactId"
-            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
-            @change="onContactSelect"
-          >
-            <option value="">직접 입력</option>
-            <option v-for="c in customerContacts" :key="c.id" :value="c.id">
-              {{ c.name }} ({{ c.phone || '연락처 없음' }})
-            </option>
-          </select>
-        </div>
-        <!-- Manager -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">납품 담당자명</label>
-          <input
-            type="text"
-            v-model="form.manager"
-            placeholder="홍길동"
-            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
-          />
-        </div>
-        <!-- Phone -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 연락처</label>
-          <input
-            type="text"
-            v-model="form.phone"
-            placeholder="010-1234-5678"
-            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
-          />
-        </div>
-        <!-- Email -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 메일주소</label>
-          <input
-            type="email"
-            v-model="form.email"
-            placeholder="example@company.com"
-            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
-          />
+        <!-- Contact Info (registered contact picker + editable fields, grouped so the relationship is clear) -->
+        <div class="border border-slate-200 rounded-md p-3 bg-slate-50 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-500">담당자 정보</label>
+            <span v-if="selectedContactId" class="text-3xs text-blue-600 font-semibold">
+              등록된 담당자 선택됨 — 아래 필드 직접 수정 가능
+            </span>
+            <span v-else class="text-3xs text-slate-400">직접 입력 중</span>
+          </div>
+
+          <div v-if="form.customer_id">
+            <select
+              v-model="selectedContactId"
+              class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+              @change="onContactSelect"
+            >
+              <option value="">직접 입력</option>
+              <option v-for="c in customerContacts" :key="c.id" :value="c.id">
+                {{ c.name }} ({{ c.phone || '연락처 없음' }})
+              </option>
+              <option value="__new__">+ 새 담당자 추가 (고객사 담당자로도 등록)</option>
+            </select>
+            <p class="text-3xs text-slate-400 mt-1">
+              담당자가 퇴사 등으로 바뀌었다면 "+ 새 담당자 추가"로 등록하세요 — 고객사 담당자 목록에도 함께 저장됩니다.
+            </p>
+          </div>
+
+          <!-- Inline new-contact form -->
+          <div v-if="selectedContactId === '__new__'" class="grid grid-cols-3 gap-2 pt-1">
+            <input type="text" v-model="newContact.name" placeholder="담당자명" class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white" />
+            <input type="text" v-model="newContact.phone" placeholder="연락처" class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white" />
+            <input type="email" v-model="newContact.email" placeholder="이메일" class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white" />
+            <AppButton variant="secondary" class="col-span-3 py-1 text-2xs" @click="addAndApplyContact">담당자 등록 및 적용</AppButton>
+          </div>
+
+          <div class="grid grid-cols-1 gap-2">
+            <div>
+              <label class="block text-3xs font-semibold text-slate-400 mb-1">납품 담당자명</label>
+              <input
+                type="text"
+                v-model="form.manager"
+                placeholder="홍길동"
+                class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+                @input="selectedContactId = ''"
+              />
+            </div>
+            <div>
+              <label class="block text-3xs font-semibold text-slate-400 mb-1">담당자 연락처</label>
+              <input
+                type="text"
+                v-model="form.phone"
+                placeholder="010-1234-5678"
+                class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+                @input="selectedContactId = ''"
+              />
+            </div>
+            <div>
+              <label class="block text-3xs font-semibold text-slate-400 mb-1">담당자 메일주소</label>
+              <input
+                type="email"
+                v-model="form.email"
+                placeholder="example@company.com"
+                class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none"
+                @input="selectedContactId = ''"
+              />
+            </div>
+          </div>
         </div>
         <!-- Scheduled Date -->
         <div>
@@ -311,7 +335,8 @@ const form = ref<any>({
 
 // Registered contacts of the currently selected customer
 const customerContacts = ref<any[]>([])
-const selectedContactId = ref<number | ''>('')
+const selectedContactId = ref<number | '' | '__new__'>('')
+const newContact = ref({ name: '', phone: '', email: '' })
 
 async function fetchCustomerContacts(customerId: number | string) {
   if (!customerId) {
@@ -333,12 +358,38 @@ function onCustomerChange() {
 }
 
 function onContactSelect() {
-  if (!selectedContactId.value) return
+  if (!selectedContactId.value || selectedContactId.value === '__new__') {
+    if (selectedContactId.value === '__new__') {
+      newContact.value = { name: '', phone: '', email: '' }
+    }
+    return
+  }
   const contact = customerContacts.value.find(c => c.id === selectedContactId.value)
   if (contact) {
     form.value.manager = contact.name
     form.value.phone = contact.phone || ''
     form.value.email = contact.email || ''
+  }
+}
+
+async function addAndApplyContact() {
+  if (!newContact.value.name.trim()) {
+    uiStore.addToast('담당자명을 입력해 주세요.', 'warning')
+    return
+  }
+  if (!form.value.customer_id) return
+  try {
+    const res = await api.post('/contacts', { customer_id: form.value.customer_id, ...newContact.value })
+    const created = res.data.data
+    await fetchCustomerContacts(form.value.customer_id)
+    selectedContactId.value = created.id
+    form.value.manager = created.name
+    form.value.phone = created.phone || ''
+    form.value.email = created.email || ''
+    uiStore.addToast('담당자가 등록되고 적용되었습니다.', 'success')
+  } catch (error) {
+    console.error(error)
+    uiStore.addToast('담당자 등록 실패', 'error')
   }
 }
 
