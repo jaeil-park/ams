@@ -340,6 +340,7 @@ async function openEditModal(item: any) {
     phone: item.phone || '',
     status: item.status
   }
+  newContact.value = { name: '', phone: '', email: '' }
   isModalOpen.value = true
   await fetchContacts(item.id)
   const matched = contacts.value.find(c => c.name === item.manager)
