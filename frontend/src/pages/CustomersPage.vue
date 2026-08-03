@@ -101,24 +101,44 @@
             class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        <!-- Manager -->
+        <!-- Main Manager (dropdown from registered contacts when available, free text otherwise) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">메인 담당자</label>
+          <select
+            v-if="isEditMode && contacts.length > 0"
+            v-model="selectedMainContactId"
+            class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            @change="onMainContactSelect"
+          >
+            <option value="">직접 입력</option>
+            <option v-for="c in contacts" :key="c.id" :value="c.id">
+              {{ c.name }} ({{ c.phone || '연락처 없음' }})
+            </option>
+          </select>
+          <p v-if="isEditMode && contacts.length > 0" class="text-3xs text-slate-400 mt-1 mb-2">
+            아래 "담당자 관리" 목록에 없는 새 담당자는 목록에 먼저 추가한 뒤 여기서 선택하세요.
+          </p>
+        </div>
+        <!-- Manager Name -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 성함</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             v-model="form.manager"
             placeholder="홍길동"
             class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            @input="selectedMainContactId = ''"
           />
         </div>
         <!-- Phone -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">담당자 연락처</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             v-model="form.phone"
             placeholder="010-1234-5678"
             class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            @input="selectedMainContactId = ''"
           />
         </div>
         <!-- Status -->
@@ -305,10 +325,11 @@ function openCreateModal() {
   }
   contacts.value = []
   newContact.value = { name: '', phone: '', email: '' }
+  selectedMainContactId.value = ''
   isModalOpen.value = true
 }
 
-function openEditModal(item: any) {
+async function openEditModal(item: any) {
   isEditMode.value = true
   currentEditId.value = item.id
   form.value = {
@@ -320,7 +341,9 @@ function openEditModal(item: any) {
     status: item.status
   }
   isModalOpen.value = true
-  fetchContacts(item.id)
+  await fetchContacts(item.id)
+  const matched = contacts.value.find(c => c.name === item.manager)
+  selectedMainContactId.value = matched ? matched.id : ''
 }
 
 function closeModal() {
@@ -330,6 +353,16 @@ function closeModal() {
 // Contacts (per-customer) management
 const contacts = ref<any[]>([])
 const newContact = ref({ name: '', phone: '', email: '' })
+const selectedMainContactId = ref<number | ''>('')
+
+function onMainContactSelect() {
+  if (!selectedMainContactId.value) return
+  const contact = contacts.value.find(c => c.id === selectedMainContactId.value)
+  if (contact) {
+    form.value.manager = contact.name
+    form.value.phone = contact.phone || ''
+  }
+}
 
 async function fetchContacts(customerId: number) {
   try {
