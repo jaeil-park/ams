@@ -42,8 +42,8 @@ class PartInventoryOut(PartInventoryBase):
 
 
 # ─── Part Usage ──────────────────────────────────
-class PartUsageBase(BaseModel):
-    part_id: int
+class PartUsageCreate(BaseModel):
+    # part_id는 URL 경로(/parts/{id}/usage)로 전달되므로 요청 본문에는 불필요
     used_date: date | None = None
     customer_id: int
     location: str | None = Field(None, max_length=200)
@@ -52,15 +52,18 @@ class PartUsageBase(BaseModel):
     po_number: str | None = Field(None, max_length=100)
 
 
-class PartUsageCreate(PartUsageBase):
-    pass
-
-
-class PartUsageOut(PartUsageBase):
+class PartUsageOut(BaseModel):
     id: int
+    part_id: int
+    used_date: date
+    customer_id: int
+    location: str | None = None
+    reason: str | None = None
+    qty: int
+    po_number: str | None = None
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
