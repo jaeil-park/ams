@@ -176,10 +176,34 @@
           <label class="block font-semibold text-slate-500 mb-1">사용 출고 수량 *</label>
           <input type="number" required v-model="usageForm.qty" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
         </div>
-        <!-- PO/PR Number (단품/Percall 납품 시) -->
-        <div>
+        <!-- PO/PR Number (기존 프로젝트 검색 선택 또는 Percall 직접 입력) -->
+        <div class="relative">
           <label class="block font-semibold text-slate-500 mb-1">PO/PR 번호</label>
-          <input type="text" v-model="usageForm.po_number" placeholder="단품 또는 Percall 납품 시 입력" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+          <input
+            type="text"
+            v-model="usageForm.po_number"
+            placeholder="PO 번호 검색 또는 Percall 시 직접 입력"
+            class="block w-full px-3 py-2 border border-slate-300 rounded-md"
+            @input="onPoSearchInput"
+            @focus="showPoDropdown = poSearchResults.length > 0"
+          />
+          <ul
+            v-if="showPoDropdown"
+            class="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-40 overflow-y-auto"
+          >
+            <li
+              v-for="p in poSearchResults"
+              :key="p.id"
+              class="px-3 py-2 hover:bg-blue-50 cursor-pointer"
+              @click="selectPoProject(p)"
+            >
+              <div class="font-mono font-semibold text-slate-700">{{ p.po_number }}</div>
+              <div class="text-3xs text-slate-400">{{ p.name }} · {{ getProjectCustomerName(p.customer_id) }}</div>
+            </li>
+            <li v-if="poSearchResults.length === 0" class="px-3 py-2 text-slate-400">
+              일치하는 PO가 없습니다. 직접 입력해 Percall로 등록하세요.
+            </li>
+          </ul>
         </div>
         <!-- Location -->
         <div>
@@ -282,6 +306,41 @@ const usageForm = ref<any>({
   reason: '',
   po_number: ''
 })
+
+// PO/PR search-select (기존 프로젝트에 파트 추가 장착하는 경우)
+const poSearchResults = ref<any[]>([])
+const showPoDropdown = ref(false)
+let poSearchDebounce: ReturnType<typeof setTimeout> | null = null
+
+function getProjectCustomerName(customerId: number) {
+  const c = activeCustomers.value.find(item => item.id === customerId)
+  return c ? c.name : `고객사(ID:${customerId})`
+}
+
+function onPoSearchInput() {
+  if (poSearchDebounce) clearTimeout(poSearchDebounce)
+  const query = usageForm.value.po_number.trim()
+  if (!query) {
+    poSearchResults.value = []
+    showPoDropdown.value = false
+    return
+  }
+  poSearchDebounce = setTimeout(async () => {
+    try {
+      const res = await api.get('/projects', { params: { search: query, limit: 10 } })
+      poSearchResults.value = res.data.data
+      showPoDropdown.value = true
+    } catch (error) {
+      console.error('PO 검색 실패:', error)
+    }
+  }, 300)
+}
+
+function selectPoProject(project: any) {
+  usageForm.value.po_number = project.po_number
+  usageForm.value.customer_id = project.customer_id
+  showPoDropdown.value = false
+}
 
 // History modal state
 const isHistoryOpen = ref(false)
@@ -429,6 +488,8 @@ function openUsageModal(item: any) {
     reason: '',
     po_number: ''
   }
+  poSearchResults.value = []
+  showPoDropdown.value = false
   isUsageModalOpen.value = true
 }
 
