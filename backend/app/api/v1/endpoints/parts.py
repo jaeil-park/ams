@@ -84,48 +84,72 @@ async def get_part(
     return ResponseEnvelope(data=part)
 
 
-@router.post("/{id}/usage", response_model=ResponseEnvelope[schemas.part.PartUsageOut], status_code=status.HTTP_201_CREATED)
+@router.get("/{id}/usage", response_model=ResponseEnvelope[list[schemas.part.PartUsageOut]])
+async def list_part_usage(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """파트 출고/사용 이력 조회 (관리자 승인이 완료된 건만 기록됩니다)"""
+    part = await crud.part_inventory.get(db, id=id)
+    if not part:
+        raise HTTPException(status_code=404, detail="해당 파트를 찾을 수 없습니다.")
+
+    result = await db.execute(
+        select(models.PartUsage)
+        .where(models.PartUsage.part_id == id)
+        .order_by(models.PartUsage.used_date.desc(), models.PartUsage.created_at.desc())
+    )
+    return ResponseEnvelope(data=result.scalars().all())
+
+
+@router.post("/{id}/usage", response_model=ResponseEnvelope[schemas.part.ApprovalOut], status_code=status.HTTP_202_ACCEPTED)
 async def create_part_usage(
     id: int,
     obj_in: schemas.part.PartUsageCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """파트 사용(출고) 내역 등록 (등록 시 파트 수량이 자동 감소합니다)"""
+    """
+    파트 사용(출고) 결재 요청 등록
+    - 직접 반영되지 않고, 결재 테이블(approvals)에 PENDING 상태로 예약됩니다.
+    - ADMIN이 승인해야 실제 재고 차감 및 사용 이력 기록이 이루어집니다.
+    """
     part = await crud.part_inventory.get(db, id=id)
     if not part:
         raise HTTPException(status_code=404, detail="해당 파트를 찾을 수 없습니다.")
-        
+
     if part.qty < obj_in.qty:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"출고 수량이 재고 수량보다 많습니다. (현재 재고: {part.qty})"
         )
-        
+
     # 고객사 검증
     cust = await crud.customer.get(db, id=obj_in.customer_id)
     if not cust:
         raise HTTPException(status_code=400, detail="유효하지 않은 고객사 ID입니다.")
-        
-    # 파트 수량 차감
-    part.qty -= obj_in.qty
-    db.add(part)
-    
-    # 내역 생성
-    new_usage = models.PartUsage(
-        part_id=id,
-        used_date=obj_in.used_date or date.today(),
-        customer_id=obj_in.customer_id,
-        location=obj_in.location,
+
+    approval_req = models.Approval(
+        requester_id=current_user.id,
+        resource_type="PART_USAGE",
+        resource_id=id,
+        status="PENDING",
         reason=obj_in.reason,
-        qty=obj_in.qty,
-        po_number=obj_in.po_number
+        payload={
+            "customer_id": obj_in.customer_id,
+            "used_date": (obj_in.used_date or date.today()).isoformat(),
+            "location": obj_in.location,
+            "reason": obj_in.reason,
+            "qty": obj_in.qty,
+            "po_number": obj_in.po_number,
+        }
     )
-    db.add(new_usage)
+    db.add(approval_req)
     await db.commit()
-    await db.refresh(new_usage)
-    
-    return ResponseEnvelope(data=new_usage)
+    await db.refresh(approval_req)
+
+    return ResponseEnvelope(data=approval_req)
 
 
 @router.patch("/{id}/qty", response_model=ResponseEnvelope[schemas.part.ApprovalOut], status_code=status.HTTP_202_ACCEPTED)

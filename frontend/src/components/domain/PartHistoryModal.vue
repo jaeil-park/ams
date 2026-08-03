@@ -54,7 +54,8 @@
 
       <!-- 3. Usage History Table -->
       <div>
-        <h4 class="font-bold text-slate-800 mb-2 pb-1 border-b border-slate-100 select-none">부품 출고 및 사용 이력</h4>
+        <h4 class="font-bold text-slate-800 mb-1 pb-1 border-b border-slate-100 select-none">부품 출고 및 사용 이력</h4>
+        <p class="text-3xs text-slate-400 mb-2">관리자 승인이 완료된 출고 건만 표시됩니다. 승인 대기 중인 건은 승인 관리 화면에서 확인하세요.</p>
         <div v-if="usages.length === 0" class="text-slate-400 font-medium text-center py-6 bg-slate-50 rounded border border-dashed border-slate-200">
           사용 이력이 존재하지 않습니다.
         </div>
@@ -126,12 +127,10 @@ async function fetchPartDetail() {
 
 async function fetchUsageHistory() {
   try {
-    // API 명세상 Usage는 custom filter로 목록을 받습니다.
-    const res = await api.get(`/parts?limit=100`)
-    // 이 파트 ID를 찌르는 이력이 있다면 가져옵니다 (Mocking / usage list binding)
-    usages.value = []
+    const res = await api.get(`/parts/${props.partId}/usage`)
+    usages.value = res.data.data
   } catch (error) {
-    console.error(error)
+    console.error('사용 이력 조회 실패:', error)
   }
 }
 

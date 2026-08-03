@@ -82,7 +82,11 @@
               <td class="px-4 py-3 text-slate-700 max-w-xs">
                 <div class="font-semibold">자원 ID: {{ item.resource_id }}</div>
                 <div class="text-slate-500 mt-0.5" v-if="item.payload">
-                  <span v-if="item.payload.qty !== undefined">
+                  <span v-if="item.resource_type === 'PART_USAGE'">
+                    출고 수량 <span class="font-bold text-blue-600">{{ item.payload.qty }}개</span>
+                    <span v-if="item.payload.po_number"> · PO {{ item.payload.po_number }}</span>
+                  </span>
+                  <span v-else-if="item.payload.qty !== undefined">
                     수량 변경 → <span class="font-bold text-blue-600">{{ item.payload.qty }}개</span>
                   </span>
                 </div>
@@ -186,7 +190,7 @@ const approvals = ref<any[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const totalPages = ref(1)
-const statusFilter = ref('PENDING')
+const statusFilter = ref('')
 const processingId = ref<number | null>(null)
 
 // 반려 모달
@@ -264,6 +268,7 @@ function onPageChange(page: number) {
 function resourceTypeBadge(type: string) {
   const map: Record<string, string> = {
     PART_QTY: 'bg-purple-100 text-purple-700',
+    PART_USAGE: 'bg-teal-100 text-teal-700',
     SERVER: 'bg-blue-100 text-blue-700',
     PROJECT: 'bg-emerald-100 text-emerald-700',
   }

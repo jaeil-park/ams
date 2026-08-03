@@ -512,7 +512,7 @@ async function submitUsage() {
   try {
     const res = await api.post(`/parts/${selectedPart.value.id}/usage`, usageForm.value)
     if (res.data.data) {
-      uiStore.addToast('파트가 성공적으로 출고 처리되었습니다.', 'success')
+      uiStore.addToast('출고 승인 요청이 접수되었습니다. 관리자 승인 후 재고에 반영됩니다.', 'success')
       closeUsageModal()
       fetchParts()
     }

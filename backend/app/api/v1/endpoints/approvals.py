@@ -2,6 +2,7 @@
 app/api/v1/endpoints/approvals.py — Admin 전용 결재/승인 관리 API
 """
 
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,7 +93,49 @@ async def approve_request(
             after={"qty": new_qty}
         )
         db.add(audit)
-        
+
+    elif approval.resource_type == "PART_USAGE":
+        part = await crud.part_inventory.get(db, id=approval.resource_id)
+        if not part:
+            raise HTTPException(status_code=404, detail="출고 대상 부품이 존재하지 않습니다.")
+
+        payload = approval.payload
+        usage_qty = payload.get("qty")
+        if usage_qty is None or usage_qty <= 0:
+            raise HTTPException(status_code=400, detail="승인 페이로드에 올바르지 않은 수량이 적혀있습니다.")
+
+        # 요청 시점 이후 재고가 줄었을 수 있으므로 승인 시점에 다시 검증
+        if part.qty < usage_qty:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"승인 시점 재고가 부족합니다. (현재 재고: {part.qty}, 요청 수량: {usage_qty})"
+            )
+
+        before_state = {"qty": part.qty}
+        part.qty -= usage_qty
+        db.add(part)
+
+        new_usage = models.PartUsage(
+            part_id=part.id,
+            used_date=date.fromisoformat(payload["used_date"]) if payload.get("used_date") else date.today(),
+            customer_id=payload.get("customer_id"),
+            location=payload.get("location"),
+            reason=payload.get("reason"),
+            qty=usage_qty,
+            po_number=payload.get("po_number"),
+        )
+        db.add(new_usage)
+
+        audit = models.AuditLog(
+            user_id=current_user.id,
+            action="UPDATE",
+            resource_type="PART",
+            resource_id=part.id,
+            before=before_state,
+            after={"qty": part.qty, "usage_qty": usage_qty},
+        )
+        db.add(audit)
+
     # 상태 갱신
     approval.status = "APPROVED"
     approval.approver_id = current_user.id
