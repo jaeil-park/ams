@@ -115,10 +115,12 @@ const totalPages = ref(1)
 const total = ref(0)
 const expandedId = ref<number | null>(null)
 
+const today = new Date().toISOString().substring(0, 10)
+
 const filters = ref({
   level: '',
-  date_from: '',
-  date_to: '',
+  date_from: today,
+  date_to: today,
 })
 
 onMounted(() => {
@@ -145,7 +147,7 @@ async function fetchLogs() {
 }
 
 function resetFilters() {
-  filters.value = { level: '', date_from: '', date_to: '' }
+  filters.value = { level: '', date_from: today, date_to: today }
   currentPage.value = 1
   fetchLogs()
 }
