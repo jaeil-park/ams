@@ -16,9 +16,11 @@ class PartInventory(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     category: Mapped[str] = mapped_column(String(50), default="PART", nullable=False)
     model: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    part_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     qty: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="IN_STOCK", nullable=False)  # IN_STOCK, RMA, etc.
     location: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     warranty_end: Mapped[date | None] = mapped_column(Date, nullable=True)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True)

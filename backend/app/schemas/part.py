@@ -11,9 +11,11 @@ from typing import Literal
 class PartInventoryBase(BaseModel):
     category: str = "PART"
     model: str = Field(..., min_length=1, max_length=100)
+    part_number: str | None = Field(None, max_length=100)
     qty: int = Field(0, ge=0)
     status: str = "IN_STOCK"
     location: str | None = Field(None, max_length=200)
+    notes: str | None = Field(None, max_length=2000)
     purchase_date: date | None = None
     warranty_end: date | None = None
     project_id: int | None = None
@@ -26,9 +28,11 @@ class PartInventoryCreate(PartInventoryBase):
 class PartInventoryUpdate(BaseModel):
     category: str | None = None
     model: str | None = Field(None, min_length=1, max_length=100)
+    part_number: str | None = Field(None, max_length=100)
     qty: int | None = Field(None, ge=0)
     status: str | None = None
     location: str | None = Field(None, max_length=200)
+    notes: str | None = Field(None, max_length=2000)
     purchase_date: date | None = None
     warranty_end: date | None = None
     project_id: int | None = None

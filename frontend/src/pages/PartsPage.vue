@@ -95,6 +95,11 @@
           <label class="block font-semibold text-slate-500 mb-1">부품 모델명 *</label>
           <input type="text" required v-model="form.model" placeholder="예: 1.92TB SATA 2.5 SSD" class="block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none" />
         </div>
+        <!-- Part Number -->
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">파트넘버</label>
+          <input type="text" v-model="form.part_number" placeholder="예: MZ7L31T9HBLT-00A07" class="block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none" />
+        </div>
         <!-- Category -->
         <div>
           <label class="block font-semibold text-slate-500 mb-1">카테고리</label>
@@ -136,6 +141,11 @@
         <div>
           <label class="block font-semibold text-slate-500 mb-1">보관 위치</label>
           <input type="text" v-model="form.location" placeholder="본사 2층 자산창고 A-3" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+        </div>
+        <!-- Notes -->
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">비고</label>
+          <textarea v-model="form.notes" rows="2" placeholder="특이사항을 입력하세요" class="block w-full px-3 py-2 border border-slate-300 rounded-md"></textarea>
         </div>
         <!-- Project Mapping -->
         <div>
@@ -265,6 +275,7 @@ const totalItems = ref(0)
 const columns: ColumnDefinition[] = [
   { key: 'category', label: '구분' },
   { key: 'model', label: '부품 모델명' },
+  { key: 'part_number', label: '파트넘버' },
   { key: 'qty', label: '보유 수량' },
   { key: 'status', label: '상태' },
   { key: 'location', label: '보관 위치' },
@@ -280,11 +291,13 @@ const categoryOptions = ['DISK', 'CPU', 'MEM', 'NIC', 'PSU', 'GPU', 'PART']
 const categorySelect = ref('PART')
 const form = ref<any>({
   model: '',
+  part_number: '',
   category: 'PART',
   qty: 0,
   status: 'IN_STOCK',
   purchase_date: '',
   location: '',
+  notes: '',
   project_id: null
 })
 
@@ -423,11 +436,13 @@ function openCreateModal() {
   categorySelect.value = 'PART'
   form.value = {
     model: '',
+    part_number: '',
     category: 'PART',
     qty: 1,
     status: 'IN_STOCK',
     purchase_date: new Date().toISOString().substring(0, 10),
     location: '',
+    notes: '',
     project_id: null
   }
   isModalOpen.value = true
@@ -440,11 +455,13 @@ function openEditModal(item: any) {
   categorySelect.value = categoryOptions.includes(category) ? category : '__custom__'
   form.value = {
     model: item.model,
+    part_number: item.part_number || '',
     category,
     qty: item.qty,
     status: item.status,
     purchase_date: item.purchase_date || '',
     location: item.location || '',
+    notes: item.notes || '',
     project_id: item.project_id
   }
   isModalOpen.value = true
