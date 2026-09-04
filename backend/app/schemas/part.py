@@ -24,6 +24,7 @@ class PartInventoryCreate(PartInventoryBase):
 
 
 class PartInventoryUpdate(BaseModel):
+    category: str | None = None
     model: str | None = Field(None, min_length=1, max_length=100)
     qty: int | None = Field(None, ge=0)
     status: str | None = None

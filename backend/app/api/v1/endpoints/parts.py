@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import crud, models, schemas
 from app.core.deps import get_db, get_current_user, require_admin
 from app.schemas.common import ResponseEnvelope, MetaSchema
+from app.services.audit import log_action
 
 router = APIRouter()
 
@@ -68,6 +69,14 @@ async def create_part(
         obj_in.warranty_end = obj_in.purchase_date + timedelta(days=365)
         
     new_part = await crud.part_inventory.create(db, obj_in=obj_in)
+    await log_action(
+        db,
+        user_id=current_user.id,
+        action="CREATE",
+        resource_type="PART",
+        resource_id=new_part.id,
+        after={"model": new_part.model, "category": new_part.category, "qty": new_part.qty},
+    )
     return ResponseEnvelope(data=new_part)
 
 
@@ -82,6 +91,62 @@ async def get_part(
     if not part:
         raise HTTPException(status_code=404, detail="해당 파트 재고를 찾을 수 없습니다.")
     return ResponseEnvelope(data=part)
+
+
+@router.patch("/{id}", response_model=ResponseEnvelope[schemas.part.PartInventoryOut])
+async def update_part(
+    id: int,
+    obj_in: schemas.part.PartInventoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """파트 정보 수정 (PATCH를 사용한 부분 수정). 수량(qty)은 결재 승인 전용 경로로만 변경됩니다."""
+    part = await crud.part_inventory.get(db, id=id)
+    if not part:
+        raise HTTPException(status_code=404, detail="해당 파트 재고를 찾을 수 없습니다.")
+
+    if obj_in.project_id is not None:
+        project = await crud.project.get(db, id=obj_in.project_id)
+        if not project:
+            raise HTTPException(status_code=400, detail="유효하지 않은 프로젝트 ID입니다.")
+
+    before_state = {"model": part.model, "qty": part.qty, "status": part.status, "location": part.location}
+    # 수량은 관리자 승인 절차(PATCH /{id}/qty)를 통해서만 변경 가능
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={"qty"})
+    updated = await crud.part_inventory.update(db, db_obj=part, obj_in=update_data)
+    await log_action(
+        db,
+        user_id=current_user.id,
+        action="UPDATE",
+        resource_type="PART",
+        resource_id=id,
+        before=before_state,
+        after=obj_in.model_dump(exclude_unset=True, exclude={"qty"}, mode="json"),
+    )
+    return ResponseEnvelope(data=updated)
+
+
+@router.delete("/{id}", response_model=ResponseEnvelope[schemas.part.PartInventoryOut])
+async def delete_part(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """파트 재고 삭제 (Soft Delete)"""
+    part = await crud.part_inventory.get(db, id=id)
+    if not part:
+        raise HTTPException(status_code=404, detail="해당 파트 재고를 찾을 수 없습니다.")
+
+    deleted = await crud.part_inventory.remove(db, id=id)
+    await log_action(
+        db,
+        user_id=current_user.id,
+        action="DELETE",
+        resource_type="PART",
+        resource_id=id,
+        before={"model": part.model, "qty": part.qty},
+    )
+    return ResponseEnvelope(data=deleted)
 
 
 @router.get("/{id}/usage", response_model=ResponseEnvelope[list[schemas.part.PartUsageOut]])
