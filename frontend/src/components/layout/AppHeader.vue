@@ -300,6 +300,7 @@ const currentPageLabel = computed(() => {
     approvals: '승인 관리',
     users: '사용자 관리',
     'audit-logs': '감사 로그',
+    'system-logs': '시스템 로그',
   }
   return map[name] || name || '대시보드'
 })

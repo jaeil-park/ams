@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     warranty,
     dashboard,
     audit_logs,
+    system_logs,
     search,
     users,
 )
@@ -34,6 +35,7 @@ api_router.include_router(addresses.router, prefix="/addresses", tags=["addresse
 api_router.include_router(warranty.router, prefix="/warranty", tags=["warranty"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
+api_router.include_router(system_logs.router, prefix="/system-logs", tags=["system-logs"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 
