@@ -17,6 +17,10 @@
             {{ part.warranty_end || '보증 없음' }} 까지
           </span>
         </div>
+        <div v-if="part.notes" class="md:col-span-3">
+          <span class="block text-4xs font-bold text-slate-400 uppercase tracking-wider">비고</span>
+          <span class="block font-medium text-slate-700 text-xs mt-0.5 whitespace-pre-wrap">{{ part.notes }}</span>
+        </div>
       </div>
 
       <!-- 2. Quantity correction & admin approval workflow trigger -->

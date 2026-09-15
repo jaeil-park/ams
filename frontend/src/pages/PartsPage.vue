@@ -65,6 +65,8 @@
       </template>
       <template #actions="{ item }">
         <div class="flex items-center gap-2">
+          <!-- Add incoming stock trigger -->
+          <AppButton variant="secondary" class="px-2 py-1 text-2xs bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-300" @click="openAddStockModal(item)">입고 추가</AppButton>
           <!-- Register part usage trigger -->
           <AppButton variant="secondary" class="px-2 py-1 text-2xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-300" @click="openUsageModal(item)">사용등록</AppButton>
           <AppButton variant="secondary" class="px-2 py-1 text-2xs" @click="openEditModal(item)">수정</AppButton>
@@ -232,6 +234,35 @@
       </template>
     </AppModal>
 
+    <!-- 2b. Add Stock (입고 추가) Modal -->
+    <AppModal
+      :is-open="isAddStockModalOpen"
+      title="파트 입고 수량 추가"
+      size="md"
+      @close="closeAddStockModal"
+    >
+      <form class="space-y-4 text-xs font-sans" @submit.prevent="submitAddStock">
+        <div class="bg-slate-50 p-3 rounded border border-slate-200 font-semibold text-slate-700">
+          대상 부품: {{ selectedPart?.model }} (현재 보유: {{ selectedPart?.qty }}개)
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">추가 입고 수량 *</label>
+          <input type="number" required min="1" v-model="addStockForm.qty" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-500 mb-1">사유/비고</label>
+          <input type="text" v-model="addStockForm.reason" placeholder="추가 입고 (구매/반품 등)" class="block w-full px-3 py-2 border border-slate-300 rounded-md" />
+        </div>
+        <p class="text-3xs text-slate-400">
+          관리자 승인 후 재고 수량에 반영됩니다 (승인 관리 화면에서 확인 가능).
+        </p>
+      </form>
+      <template #footer>
+        <AppButton variant="secondary" @click="closeAddStockModal">취소</AppButton>
+        <AppButton variant="primary" :loading="submitLoading" @click="submitAddStock">입고 승인 요청</AppButton>
+      </template>
+    </AppModal>
+
     <!-- 3. Part History / Detail Modal -->
     <PartHistoryModal 
       v-if="isHistoryOpen && currentPartId" 
@@ -287,7 +318,18 @@ const columns: ColumnDefinition[] = [
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const currentEditId = ref<number | null>(null)
-const categoryOptions = ['DISK', 'CPU', 'MEM', 'NIC', 'PSU', 'GPU', 'PART']
+const DEFAULT_CATEGORY_OPTIONS = ['DISK', 'CPU', 'MEM', 'NIC', 'PSU', 'GPU', 'PART']
+const categoryOptions = ref<string[]>([...DEFAULT_CATEGORY_OPTIONS])
+
+async function fetchCategoryOptions() {
+  try {
+    const res = await api.get('/parts/categories')
+    const fetched: string[] = res.data.data || []
+    categoryOptions.value = [...new Set([...DEFAULT_CATEGORY_OPTIONS, ...fetched])]
+  } catch (error) {
+    console.error('카테고리 목록 조회 실패:', error)
+  }
+}
 const categorySelect = ref('PART')
 const form = ref<any>({
   model: '',
@@ -363,6 +405,7 @@ onMounted(() => {
   fetchParts()
   fetchActiveProjects()
   fetchActiveCustomers()
+  fetchCategoryOptions()
 })
 
 async function fetchParts() {
@@ -452,7 +495,7 @@ function openEditModal(item: any) {
   isEditMode.value = true
   currentEditId.value = item.id
   const category = item.category || 'PART'
-  categorySelect.value = categoryOptions.includes(category) ? category : '__custom__'
+  categorySelect.value = categoryOptions.value.includes(category) ? category : '__custom__'
   form.value = {
     model: item.model,
     part_number: item.part_number || '',
@@ -486,6 +529,7 @@ async function submitForm() {
     }
     closeModal()
     fetchParts()
+    fetchCategoryOptions()
   } catch (error: any) {
     console.error(error)
     const errDetail = error.response?.data?.detail || '파트 등록 실패'
@@ -536,6 +580,47 @@ async function submitUsage() {
   } catch (error: any) {
     console.error(error)
     const errDetail = error.response?.data?.detail || '출고 등록 실패'
+    uiStore.addToast(errDetail, 'error')
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+// Add Stock (입고 추가) workflow — 기존 "재고 수량 보정" 결재 경로를 재사용
+const isAddStockModalOpen = ref(false)
+const addStockForm = ref<any>({ qty: 1, reason: '' })
+
+function openAddStockModal(item: any) {
+  selectedPart.value = item
+  addStockForm.value = { qty: 1, reason: '' }
+  isAddStockModalOpen.value = true
+}
+
+function closeAddStockModal() {
+  isAddStockModalOpen.value = false
+  selectedPart.value = null
+}
+
+async function submitAddStock() {
+  const addQty = Number(addStockForm.value.qty)
+  if (!addQty || addQty <= 0) {
+    uiStore.addToast('1개 이상의 추가 수량을 입력해 주세요.', 'warning')
+    return
+  }
+
+  submitLoading.value = true
+  try {
+    const targetQty = selectedPart.value.qty + addQty
+    const reason = addStockForm.value.reason || `입고 추가 (+${addQty}개)`
+    await api.patch(`/parts/${selectedPart.value.id}/qty`, null, {
+      params: { target_qty: targetQty, reason }
+    })
+    uiStore.addToast('입고 승인 요청이 접수되었습니다. 관리자 승인 후 재고에 반영됩니다.', 'success')
+    closeAddStockModal()
+    fetchParts()
+  } catch (error: any) {
+    console.error(error)
+    const errDetail = error.response?.data?.detail || '입고 추가 요청 실패'
     uiStore.addToast(errDetail, 'error')
   } finally {
     submitLoading.value = false

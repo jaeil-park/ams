@@ -80,6 +80,21 @@ async def create_part(
     return ResponseEnvelope(data=new_part)
 
 
+@router.get("/categories", response_model=ResponseEnvelope[list[str]])
+async def list_part_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """현재 사용 중인 파트 카테고리 목록 조회 (직접 입력으로 추가된 값 포함)"""
+    result = await db.execute(
+        select(models.PartInventory.category)
+        .where(models.PartInventory.is_deleted == False)
+        .distinct()
+    )
+    categories = sorted({c for c in result.scalars().all() if c})
+    return ResponseEnvelope(data=categories)
+
+
 @router.get("/{id}", response_model=ResponseEnvelope[schemas.part.PartInventoryOut])
 async def get_part(
     id: int,
