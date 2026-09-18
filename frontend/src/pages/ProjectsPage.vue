@@ -91,6 +91,13 @@
                 >
                   {{ proj.po_number }}
                 </button>
+                <span
+                  v-if="proj.has_po === false"
+                  class="ml-1.5 px-1.5 py-0.5 rounded text-4xs font-bold bg-amber-100 text-amber-700 align-middle"
+                  title="PO 문서가 첨부되지 않았습니다. 첨부해야 완료 처리할 수 있습니다."
+                >
+                  PO 미첨부
+                </span>
               </td>
               <td class="px-6 py-4 text-slate-700 font-semibold">{{ proj.name }}</td>
               <td class="px-6 py-4 text-slate-500 font-semibold">{{ getCustomerName(proj.customer_id) }}</td>

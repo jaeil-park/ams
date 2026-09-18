@@ -22,8 +22,20 @@ class AttachmentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AttachmentUploadOut(BaseModel):
-    """업로드 응답 — 첨부 정보와 함께, PO 문서에서 추출한 값과 불일치 항목을 돌려준다."""
-    attachment: AttachmentOut
+class PoMergeResult(BaseModel):
+    """
+    PO 문서 병합 결과.
+
+    - auto_applied: PO가 원본인 필수 항목 — 자동으로 덮어썼다.
+    - optional: 실제 진행값이라 PO와 달라도 되는 항목 — 사용자가 고르게 남겨둔다.
+    - warnings: 자동 반영을 건너뛴 사유 등 확인이 필요한 안내.
+    """
     parsed: dict | None = None
-    mismatches: list[dict] = []
+    auto_applied: list[dict] = []
+    optional: list[dict] = []
+    warnings: list[str] = []
+
+
+class AttachmentUploadOut(PoMergeResult):
+    """업로드 응답 — 첨부 정보와 PO 병합 결과."""
+    attachment: AttachmentOut

@@ -11,6 +11,7 @@ app/api/v1/endpoints/attachments.py — 프로젝트 첨부파일 API
 브라우저가 문서로 실행하지 않도록 한다.
 """
 
+from datetime import date
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
@@ -46,24 +47,107 @@ async def _get_attachment(db: AsyncSession, attachment_id: int) -> models.Projec
     return attachment
 
 
-def _diff_against_project(project: models.Project, parsed: dict) -> list[dict]:
-    """PO에서 추출한 값과 등록된 프로젝트 값을 비교해 다른 항목만 돌려준다."""
-    checks = [
-        ("po_number", "PO 번호", project.po_number),
-        ("delivery_date", "납품일정", project.scheduled_date.isoformat() if project.scheduled_date else None),
-        ("requester_email", "담당자 이메일", project.email),
-        ("ship_to_address", "납품 위치", project.location),
-    ]
-    mismatches = []
-    for key, label, current in checks:
-        po_value = parsed.get(key)
+# PO 문서가 원본인 항목 — 첨부 시 자동으로 덮어쓴다.
+# 선지원 후 PO가 발행되는 경우, 임시로 적어둔 PO 번호를 실제 번호로 정정하는 것이 목적이다.
+# 실제 진행값(납품일정 등)은 여기 포함하지 않는다 — PO대로 납품되지 않는 경우가 정상적으로 있다.
+_OPTIONAL_FIELDS = [
+    # (parsed 키, 프로젝트 필드, 라벨, 설명)
+    ("delivery_date", "scheduled_date", "실제 납품일정", "PO 요구 납기에 맞출 때만 선택하세요"),
+    ("requester", "manager", "담당자", None),
+    ("requester_email", "email", "담당자 이메일", None),
+    ("ship_to_address", "location", "납품 위치", None),
+    ("item_description", "name", "프로젝트명", "PO 품목명으로 바꿀 때만 선택하세요"),
+]
+
+
+def _current_value(project: models.Project, field: str) -> str | None:
+    value = getattr(project, field, None)
+    if value is None:
+        return None
+    return value.isoformat() if isinstance(value, date) else str(value)
+
+
+def _build_optional_choices(project: models.Project, parsed: dict) -> list[dict]:
+    """PO 값과 실제값이 다른 선택 항목만 돌려준다 (사용자가 고를 대상)."""
+    choices = []
+    for parsed_key, field, label, hint in _OPTIONAL_FIELDS:
+        po_value = parsed.get(parsed_key)
         if not po_value:
             continue
-        if not current:
-            mismatches.append({"field": key, "label": label, "po_value": po_value, "current": None})
-        elif str(current).strip() != str(po_value).strip():
-            mismatches.append({"field": key, "label": label, "po_value": po_value, "current": str(current)})
-    return mismatches
+        current = _current_value(project, field)
+        if current and current.strip() == str(po_value).strip():
+            continue
+        choices.append({
+            "field": field,
+            "label": label,
+            "hint": hint,
+            "po_value": str(po_value),
+            "current": current,
+        })
+    return choices
+
+
+async def _merge_po_into_project(
+    db: AsyncSession, project: models.Project, parsed: dict
+) -> tuple[list[dict], list[str]]:
+    """
+    PO 문서 내용을 프로젝트에 병합한다.
+    필수(PO가 원본) 항목만 자동으로 덮어쓰고, 자동 반영한 항목과 경고를 돌려준다.
+    """
+    auto_applied: list[dict] = []
+    warnings: list[str] = []
+
+    # 1) PO 번호 — 선지원 후 PO 발행 시 임시 번호를 실제 번호로 정정
+    po_number = parsed.get("po_number")
+    if po_number and po_number != project.po_number:
+        duplicate = await db.execute(
+            select(models.Project).where(
+                models.Project.po_number == po_number,
+                models.Project.id != project.id,
+                models.Project.is_deleted == False,
+            )
+        )
+        if duplicate.scalars().first():
+            warnings.append(
+                f"PO 번호 '{po_number}'가 이미 다른 프로젝트에 등록되어 있어 자동 반영하지 않았습니다. "
+                "중복 등록이 아닌지 확인해 주세요."
+            )
+        else:
+            auto_applied.append({
+                "field": "po_number", "label": "PO 번호",
+                "before": project.po_number, "after": po_number,
+            })
+            project.po_number = po_number
+
+    # 2) PO 기준 금액
+    if parsed.get("total_amount") is not None and project.po_amount != parsed["total_amount"]:
+        auto_applied.append({
+            "field": "po_amount", "label": "PO 금액",
+            "before": project.po_amount, "after": parsed["total_amount"],
+        })
+        project.po_amount = parsed["total_amount"]
+        project.po_currency = parsed.get("currency")
+
+    # 3) PO 기준 요구 납기 (실제 납품일정과는 별도로 보관)
+    if parsed.get("delivery_date"):
+        try:
+            po_date = date.fromisoformat(parsed["delivery_date"])
+        except ValueError:
+            po_date = None
+        if po_date and project.po_delivery_date != po_date:
+            auto_applied.append({
+                "field": "po_delivery_date", "label": "PO 요구 납기",
+                "before": project.po_delivery_date.isoformat() if project.po_delivery_date else None,
+                "after": po_date.isoformat(),
+            })
+            project.po_delivery_date = po_date
+
+    if auto_applied:
+        db.add(project)
+        await db.commit()
+        await db.refresh(project)
+
+    return auto_applied, warnings
 
 
 @router.post(
@@ -114,11 +198,14 @@ async def upload_attachment(
     await db.refresh(attachment)
 
     parsed = None
-    mismatches: list[dict] = []
+    auto_applied: list[dict] = []
+    optional: list[dict] = []
+    warnings: list[str] = []
     if kind == "PO" and is_parsable_po(attachment.filename, attachment.content_type):
         parsed = parse_ariba_po(raw) or None
         if parsed:
-            mismatches = _diff_against_project(project, parsed)
+            auto_applied, warnings = await _merge_po_into_project(db, project, parsed)
+            optional = _build_optional_choices(project, parsed)
 
     await log_action(
         db,
@@ -133,7 +220,9 @@ async def upload_attachment(
         data=schemas.attachment.AttachmentUploadOut(
             attachment=schemas.attachment.AttachmentOut.model_validate(attachment),
             parsed=parsed,
-            mismatches=mismatches,
+            auto_applied=auto_applied,
+            optional=optional,
+            warnings=warnings,
         )
     )
 
@@ -180,14 +269,17 @@ async def download_attachment(
 
 @router.get(
     "/attachments/{id}/parsed",
-    response_model=ResponseEnvelope[dict],
+    response_model=ResponseEnvelope[schemas.attachment.PoMergeResult],
 )
 async def get_attachment_parsed(
     id: int,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """저장된 PO 문서를 다시 파싱해 추출 항목을 돌려준다 (원본 HTML은 내보내지 않음)."""
+    """
+    저장된 PO 문서를 다시 읽어 추출 항목과 선택 반영 후보를 돌려준다.
+    조회 전용이므로 프로젝트 값을 변경하지 않는다 (원본 HTML도 내보내지 않음).
+    """
     attachment = await _get_attachment(db, id)
     if not is_parsable_po(attachment.filename, attachment.content_type):
         raise HTTPException(status_code=400, detail="내용을 추출할 수 있는 PO 문서가 아닙니다.")
@@ -201,10 +293,10 @@ async def get_attachment_parsed(
 
     project = await crud.project.get(db, id=attachment.project_id)
     return ResponseEnvelope(
-        data={
-            "parsed": parsed,
-            "mismatches": _diff_against_project(project, parsed) if project else [],
-        }
+        data=schemas.attachment.PoMergeResult(
+            parsed=parsed,
+            optional=_build_optional_choices(project, parsed) if project else [],
+        )
     )
 
 

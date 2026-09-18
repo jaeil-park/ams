@@ -6,7 +6,7 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
 from app.schemas.customer_contact import CustomerContactCreate, CustomerContactUpdate, CustomerContactOut
 from app.schemas.address import AddressCreate, AddressUpdate, AddressOut
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut
-from app.schemas.attachment import AttachmentOut, AttachmentUploadOut
+from app.schemas.attachment import AttachmentOut, AttachmentUploadOut, PoMergeResult
 from app.schemas.inventory import ServerInventoryCreate, ServerInventoryUpdate, ServerInventoryBulkCreate, ServerInventoryOut
 from app.schemas.part import PartInventoryCreate, PartInventoryUpdate, PartInventoryOut, PartUsageCreate, PartUsageOut, ApprovalCreate, ApprovalOut
 from app.schemas.audit_log import AuditLogOut

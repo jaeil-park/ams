@@ -3,7 +3,7 @@ app/models/project.py — Project DB 모델
 """
 
 from datetime import date
-from sqlalchemy import Boolean, Date, ForeignKey, String
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -22,7 +22,17 @@ class Project(Base, TimestampMixin):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="WAITING", nullable=False)  # WAITING, IN_PROGRESS, COMPLETED
     location: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    scheduled_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    scheduled_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # 실제 납품일정
+
+    # ─── PO 문서 기준값 ────────────────────────────────────────────────────
+    # PO 첨부 시 문서에서 읽어 저장한다. 위쪽 필드(실제값)와 별도로 보관하는 이유는,
+    # 실제 납품이 PO대로 이루어지지 않는 경우가 정상적으로 존재하기 때문이다.
+    # 둘을 나란히 두어야 "PO는 2대인데 1대만 납품" 같은 상황을 있는 그대로 기록할 수 있다.
+    po_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    po_currency: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    po_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    po_variance_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships

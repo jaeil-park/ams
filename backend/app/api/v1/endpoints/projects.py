@@ -22,6 +22,29 @@ _PROJECT_STATUS_TO_SERVER_STATUS = {
 }
 
 
+async def _project_ids_with_po(db: AsyncSession, project_ids: list[int]) -> set[int]:
+    """전달한 프로젝트들 중 PO 문서가 첨부된 것들의 id 집합을 반환한다."""
+    if not project_ids:
+        return set()
+    result = await db.execute(
+        select(models.ProjectAttachment.project_id)
+        .where(
+            models.ProjectAttachment.project_id.in_(project_ids),
+            models.ProjectAttachment.kind == "PO",
+            models.ProjectAttachment.is_deleted == False,
+        )
+        .distinct()
+    )
+    return set(result.scalars().all())
+
+
+async def _attach_has_po(db: AsyncSession, projects) -> None:
+    """ProjectOut.has_po 에 실릴 값을 ORM 인스턴스에 얹는다 (DB에 저장되지 않는 파생 값)."""
+    with_po = await _project_ids_with_po(db, [p.id for p in projects])
+    for p in projects:
+        p.has_po = p.id in with_po
+
+
 async def _sync_server_status_with_project(
     db: AsyncSession, *, project_id: int, project_status: str
 ) -> int:
@@ -76,7 +99,8 @@ async def list_projects(
     
     result = await db.execute(query)
     projects = result.scalars().all()
-    
+    await _attach_has_po(db, projects)
+
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     total_pages = (total + limit - 1) // limit
@@ -174,6 +198,7 @@ async def get_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="해당 프로젝트를 찾을 수 없습니다."
         )
+    await _attach_has_po(db, [project])
     return ResponseEnvelope(data=project)
 
 
@@ -204,6 +229,17 @@ async def update_project(
     status_changed_to = (
         obj_in.status if obj_in.status is not None and obj_in.status != project.status else None
     )
+
+    # PO 문서는 필수 첨부다 — 완료 처리 시점에는 반드시 있어야 한다.
+    # (등록 시점에는 PO가 아직 도착하지 않았을 수 있으므로 그때는 막지 않는다)
+    if status_changed_to == "COMPLETED":
+        if not await _project_ids_with_po(db, [id]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PO 문서가 첨부되지 않아 완료 처리할 수 없습니다. "
+                       "PO 번호를 클릭해 상세 화면에서 PO 문서를 먼저 첨부해 주세요.",
+            )
+
     updated = await crud.project.update(db, db_obj=project, obj_in=obj_in)
 
     # 프로젝트 완료 처리 시 소속 서버도 납품완료로 연동 (진행중 → 납품예정)
