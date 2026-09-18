@@ -22,34 +22,37 @@
       </div>
     </div>
 
-    <!-- Search / Filter bar -->
-    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
-      <div class="w-full sm:max-w-xs">
-        <AppSearch v-model="search" placeholder="시리얼 태그(S/N) 또는 모델 검색..." @search="handleSearch" />
-      </div>
-      
-      <div class="flex items-center gap-4">
-        <!-- PO/프로젝트별 그룹 보기 -->
-        <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 cursor-pointer">
-          <input type="checkbox" v-model="groupByProject" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-          PO/프로젝트별 묶어보기
-        </label>
+    <!-- 입고 / 출고 탭 -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <AppTabs v-model="activeTab" :tabs="inventoryTabs" @update:model-value="handleTabChange" />
 
-        <!-- Status Filter -->
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-slate-400 font-semibold">장비상태:</span>
-          <select 
-            v-model="statusFilter" 
-            class="text-xs font-semibold bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            @change="fetchInventory"
-          >
-            <option value="">전체 상태</option>
-            <option value="IN_STOCK">재고 (IN_STOCK)</option>
-            <option value="RESERVED">예약 (RESERVED)</option>
-            <option value="SCHEDULED">납품예정 (SCHEDULED)</option>
-            <option value="DELIVERED">납품완료 (DELIVERED)</option>
-            <option value="RMA">RMA</option>
-          </select>
+      <!-- Search / Filter bar -->
+      <div class="p-4 flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
+        <div class="w-full sm:max-w-xs">
+          <AppSearch v-model="search" placeholder="시리얼 태그(S/N) 또는 모델 검색..." @search="handleSearch" />
+        </div>
+
+        <div class="flex items-center gap-4">
+          <!-- PO/프로젝트별 그룹 보기 -->
+          <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 cursor-pointer">
+            <input type="checkbox" v-model="groupByProject" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+            PO/프로젝트별 묶어보기
+          </label>
+
+          <!-- 입고 탭 안에서의 세부 상태 필터 -->
+          <div v-if="activeTab === 'INBOUND'" class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-semibold">세부 상태:</span>
+            <select
+              v-model="statusFilter"
+              class="text-xs font-semibold bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              @change="handleSearch(search)"
+            >
+              <option value="">입고 전체</option>
+              <option value="IN_STOCK">재고 (IN_STOCK)</option>
+              <option value="RESERVED">예약 (RESERVED)</option>
+              <option value="SCHEDULED">납품예정 (SCHEDULED)</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -470,6 +473,8 @@ import type { ColumnDefinition } from '@/components/common/AppTable.vue'
 import AppSearch from '@/components/common/AppSearch.vue'
 import AppPagination from '@/components/common/AppPagination.vue'
 import AppModal from '@/components/common/AppModal.vue'
+import AppTabs from '@/components/common/AppTabs.vue'
+import type { TabDefinition } from '@/components/common/AppTabs.vue'
 import ServerDetailModal from '@/components/domain/ServerDetailModal.vue'
 
 const route = useRoute()
@@ -483,6 +488,53 @@ const submitLoading = ref(false)
 // Query filters
 const search = ref('')
 const statusFilter = ref('')
+
+// ─── 입고 / 출고 탭 ──────────────────────────────────────────────────────
+// 입고 = 아직 고객사로 나가지 않은 장비(재고/예약/납품예정)
+// 출고 = 납품이 끝난 장비(납품완료). RMA는 별도 트랙이라 탭을 나눈다.
+const INBOUND_STATUSES = ['IN_STOCK', 'RESERVED', 'SCHEDULED']
+const activeTab = ref<'ALL' | 'INBOUND' | 'OUTBOUND' | 'RMA' | string>('INBOUND')
+const statusCounts = ref<Record<string, number>>({})
+
+const inventoryTabs = computed<TabDefinition[]>(() => {
+  const c = statusCounts.value
+  const inbound = INBOUND_STATUSES.reduce((sum, s) => sum + (c[s] || 0), 0)
+  return [
+    { value: 'INBOUND', label: '입고 (재고)', count: inbound, dotClass: 'bg-emerald-500' },
+    { value: 'OUTBOUND', label: '출고 (납품완료)', count: c.DELIVERED || 0, dotClass: 'bg-blue-500' },
+    { value: 'RMA', label: 'RMA', count: c.RMA || 0, dotClass: 'bg-rose-500' },
+    { value: 'ALL', label: '전체', count: c.TOTAL || 0 },
+  ]
+})
+
+/** 현재 탭 + 세부 상태 필터를 API의 status 쿼리 값으로 변환 */
+function currentStatusParam(): string {
+  if (activeTab.value === 'OUTBOUND') return 'DELIVERED'
+  if (activeTab.value === 'RMA') return 'RMA'
+  if (activeTab.value === 'INBOUND') {
+    return statusFilter.value || INBOUND_STATUSES.join(',')
+  }
+  return ''
+}
+
+function handleTabChange(tab: string) {
+  activeTab.value = tab
+  // 입고 탭을 벗어나면 세부 상태 필터는 의미가 없으므로 초기화
+  if (tab !== 'INBOUND') statusFilter.value = ''
+  page.value = 1
+  fetchInventory()
+}
+
+async function fetchStatusCounts() {
+  try {
+    const params: any = {}
+    if (search.value) params.search = search.value
+    const res = await api.get('/inventory/status-counts', { params })
+    statusCounts.value = res.data.data || {}
+  } catch (error) {
+    console.error('장비상태 건수 조회 실패:', error)
+  }
+}
 const page = ref(1)
 const limit = ref(10)
 const totalPages = ref(1)
@@ -580,11 +632,20 @@ onMounted(() => {
   fetchActiveProjects()
 })
 
-// 대시보드 등에서 넘어올 때 URL 쿼리(status/search)를 초기 필터로 반영한다.
+// 대시보드 등에서 넘어올 때 URL 쿼리(status/search)를 초기 탭·필터로 반영한다.
 function applyRouteQuery() {
   const q = route.query
-  if (typeof q.status === 'string' && q.status) statusFilter.value = q.status
   if (typeof q.search === 'string' && q.search) search.value = q.search
+  if (typeof q.status === 'string' && q.status) {
+    if (q.status === 'DELIVERED') {
+      activeTab.value = 'OUTBOUND'
+    } else if (q.status === 'RMA') {
+      activeTab.value = 'RMA'
+    } else if (INBOUND_STATUSES.includes(q.status)) {
+      activeTab.value = 'INBOUND'
+      statusFilter.value = q.status
+    }
+  }
 }
 
 async function fetchInventory() {
@@ -592,9 +653,11 @@ async function fetchInventory() {
   try {
     let url = `/inventory?page=${page.value}&limit=${limit.value}`
     if (search.value) url += `&search=${encodeURIComponent(search.value)}`
-    if (statusFilter.value) url += `&status=${statusFilter.value}`
+    const statusParam = currentStatusParam()
+    if (statusParam) url += `&status=${statusParam}`
 
     const res = await api.get(url)
+    fetchStatusCounts()
     servers.value = res.data.data
 
     const meta = res.data.meta

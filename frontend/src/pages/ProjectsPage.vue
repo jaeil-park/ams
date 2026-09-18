@@ -14,35 +14,23 @@
       </AppButton>
     </div>
 
-    <!-- Search / Filter bar -->
-    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
-      <div class="w-full sm:max-w-xs">
-        <AppSearch v-model="search" placeholder="프로젝트명 또는 PO 번호 검색..." @search="handleSearch" />
-      </div>
-      
-      <div class="flex items-center gap-4">
-        <!-- Status Filter -->
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-slate-400 font-semibold">진행상태:</span>
-          <select 
-            v-model="statusFilter" 
-            class="text-xs font-semibold bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            @change="fetchProjects"
-          >
-            <option value="">전체 상태</option>
-            <option value="WAITING">대기 (WAITING)</option>
-            <option value="IN_PROGRESS">진행중 (IN_PROGRESS)</option>
-            <option value="COMPLETED">완료 (COMPLETED)</option>
-          </select>
+    <!-- 진행상태 탭 -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <AppTabs v-model="statusFilter" :tabs="projectTabs" @update:model-value="handleTabChange" />
+
+      <!-- Search / Filter bar -->
+      <div class="p-4 flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
+        <div class="w-full sm:max-w-xs">
+          <AppSearch v-model="search" placeholder="프로젝트명 또는 PO 번호 검색..." @search="handleSearch" />
         </div>
 
         <!-- Customer Filter -->
         <div class="flex items-center gap-2">
           <span class="text-xs text-slate-400 font-semibold">고객사:</span>
-          <select 
-            v-model="customerFilter" 
+          <select
+            v-model="customerFilter"
             class="text-xs font-semibold bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-[150px]"
-            @change="fetchProjects"
+            @change="handleSearch(search)"
           >
             <option value="">전체 고객사</option>
             <option v-for="c in activeCustomers" :key="c.id" :value="c.id">
@@ -302,6 +290,8 @@ import AppBadge from '@/components/common/AppBadge.vue'
 import AppPagination from '@/components/common/AppPagination.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import AppSearch from '@/components/common/AppSearch.vue'
+import AppTabs from '@/components/common/AppTabs.vue'
+import type { TabDefinition } from '@/components/common/AppTabs.vue'
 import ProjectItemsPanel from '@/components/domain/ProjectItemsPanel.vue'
 
 const route = useRoute()
@@ -316,7 +306,38 @@ const expandedRows = ref<number[]>([])
 
 // Query filters
 const search = ref('')
+// 탭 값이 곧 status 쿼리 값 — '' 는 전체
 const statusFilter = ref('')
+
+const statusCounts = ref<Record<string, number>>({})
+
+const projectTabs = computed<TabDefinition[]>(() => {
+  const c = statusCounts.value
+  return [
+    { value: 'IN_PROGRESS', label: '진행중', count: c.IN_PROGRESS || 0, dotClass: 'bg-blue-500' },
+    { value: 'WAITING', label: '대기', count: c.WAITING || 0, dotClass: 'bg-amber-500' },
+    { value: 'COMPLETED', label: '완료', count: c.COMPLETED || 0, dotClass: 'bg-emerald-500' },
+    { value: '', label: '전체', count: c.TOTAL || 0 },
+  ]
+})
+
+function handleTabChange(tab: string) {
+  statusFilter.value = tab
+  page.value = 1
+  fetchProjects()
+}
+
+async function fetchStatusCounts() {
+  try {
+    const params: any = {}
+    if (search.value) params.search = search.value
+    if (customerFilter.value) params.customer_id = customerFilter.value
+    const res = await api.get('/projects/status-counts', { params })
+    statusCounts.value = res.data.data || {}
+  } catch (error) {
+    console.error('프로젝트 상태 건수 조회 실패:', error)
+  }
+}
 const customerFilter = ref('')
 const page = ref(1)
 const limit = ref(10)
@@ -439,6 +460,7 @@ async function fetchProjects() {
     if (customerFilter.value) url += `&customer_id=${customerFilter.value}`
 
     const res = await api.get(url)
+    fetchStatusCounts()
     projects.value = res.data.data
 
     const meta = res.data.meta

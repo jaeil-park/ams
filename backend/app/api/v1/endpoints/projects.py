@@ -129,6 +129,38 @@ async def create_project(
     return ResponseEnvelope(data=new_project)
 
 
+@router.get("/status-counts", response_model=ResponseEnvelope[dict[str, int]])
+async def get_project_status_counts(
+    search: str | None = Query(None),
+    customer_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    진행상태별 건수 조회 (진행중/완료 탭의 건수 배지용).
+    검색어·고객사 필터를 함께 넘기면 그 조건 안에서의 건수를 반환한다.
+    """
+    query = (
+        select(models.Project.status, func.count(models.Project.id))
+        .where(models.Project.is_deleted == False)
+        .group_by(models.Project.status)
+    )
+    if search:
+        query = query.where(
+            models.Project.name.ilike(f"%{search}%") | models.Project.po_number.ilike(f"%{search}%")
+        )
+    if customer_id:
+        query = query.where(models.Project.customer_id == customer_id)
+
+    result = await db.execute(query)
+    counts = {s: 0 for s in ("WAITING", "IN_PROGRESS", "COMPLETED")}
+    for row_status, row_count in result.all():
+        if row_status in counts:
+            counts[row_status] = int(row_count or 0)
+    counts["TOTAL"] = sum(counts.values())
+    return ResponseEnvelope(data=counts)
+
+
 @router.get("/{id}", response_model=ResponseEnvelope[schemas.project.ProjectOut])
 async def get_project(
     id: int,

@@ -15,13 +15,41 @@ from app.services.audit import log_action
 
 router = APIRouter()
 
+SERVER_STATUSES = ("IN_STOCK", "RESERVED", "SCHEDULED", "DELIVERED", "RMA")
+
+
+def _parse_status_filter(raw: str | None) -> list[str]:
+    """
+    status 쿼리를 상태 목록으로 파싱한다.
+    입고/출고 탭처럼 여러 상태를 한 번에 보려면 콤마로 구분해 전달한다.
+    (예: status=IN_STOCK,RESERVED,SCHEDULED)
+    """
+    if not raw:
+        return []
+    values = [v.strip() for v in raw.split(",") if v.strip()]
+    invalid = [v for v in values if v not in SERVER_STATUSES]
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"유효하지 않은 장비상태입니다: {', '.join(invalid)}",
+        )
+    return values
+
+
+def _inventory_search_filter(search: str):
+    return (
+        models.ServerInventory.serial_tag.ilike(f"%{search}%")
+        | models.ServerInventory.model.ilike(f"%{search}%")
+        | models.ServerInventory.host_name.ilike(f"%{search}%")
+    )
+
 
 @router.get("", response_model=ResponseEnvelope[list[schemas.inventory.ServerInventoryOut]])
 async def list_inventory(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=1000),
     search: str | None = Query(None),
-    status_filter: Literal["IN_STOCK", "RESERVED", "SCHEDULED", "DELIVERED", "RMA"] | None = Query(None, alias="status"),
+    status_filter: str | None = Query(None, alias="status"),
     project_id: int | None = Query(None),
     location: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -29,23 +57,20 @@ async def list_inventory(
 ):
     """서버 장비 재고 및 납품이력 목록 조회"""
     skip = (page - 1) * limit
-    
+    statuses = _parse_status_filter(status_filter)
+
     query = select(models.ServerInventory).where(models.ServerInventory.is_deleted == False)
     count_query = select(func.count(models.ServerInventory.id)).where(models.ServerInventory.is_deleted == False)
-    
+
     if search:
-        search_filter = (
-            models.ServerInventory.serial_tag.ilike(f"%{search}%") | 
-            models.ServerInventory.model.ilike(f"%{search}%") |
-            models.ServerInventory.host_name.ilike(f"%{search}%")
-        )
+        search_filter = _inventory_search_filter(search)
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-        
-    if status_filter:
-        query = query.where(models.ServerInventory.status == status_filter)
-        count_query = count_query.where(models.ServerInventory.status == status_filter)
-        
+
+    if statuses:
+        query = query.where(models.ServerInventory.status.in_(statuses))
+        count_query = count_query.where(models.ServerInventory.status.in_(statuses))
+
     if project_id:
         query = query.where(models.ServerInventory.project_id == project_id)
         count_query = count_query.where(models.ServerInventory.project_id == project_id)
@@ -162,6 +187,33 @@ async def create_bulk_inventory(
         after={"count": len(created_servers), "serials": obj_in.serial_tags},
     )
     return ResponseEnvelope(data=created_servers)
+
+
+@router.get("/status-counts", response_model=ResponseEnvelope[dict[str, int]])
+async def get_inventory_status_counts(
+    search: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    장비상태별 건수 조회 (입고/출고 탭의 건수 배지용).
+    검색어를 함께 넘기면 그 검색 결과 안에서의 건수를 반환하므로 탭 숫자와 목록이 일치한다.
+    """
+    query = (
+        select(models.ServerInventory.status, func.count(models.ServerInventory.id))
+        .where(models.ServerInventory.is_deleted == False)
+        .group_by(models.ServerInventory.status)
+    )
+    if search:
+        query = query.where(_inventory_search_filter(search))
+
+    result = await db.execute(query)
+    counts = {s: 0 for s in SERVER_STATUSES}
+    for row_status, row_count in result.all():
+        if row_status in counts:
+            counts[row_status] = int(row_count or 0)
+    counts["TOTAL"] = sum(counts[s] for s in SERVER_STATUSES)
+    return ResponseEnvelope(data=counts)
 
 
 @router.get("/{id}", response_model=ResponseEnvelope[schemas.inventory.ServerInventoryOut])
