@@ -7,6 +7,7 @@ from app.models.customer import Customer
 from app.models.customer_contact import CustomerContact
 from app.models.address import Address
 from app.models.project import Project
+from app.models.project_attachment import ProjectAttachment
 from app.models.server_inventory import ServerInventory
 from app.models.part_inventory import PartInventory
 from app.models.part_usage import PartUsage

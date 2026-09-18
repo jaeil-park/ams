@@ -82,7 +82,16 @@
                   </svg>
                 </button>
               </td>
-              <td class="px-6 py-4 font-mono font-bold text-slate-700">{{ proj.po_number }}</td>
+              <td class="px-6 py-4">
+                <button
+                  type="button"
+                  class="font-mono font-bold text-blue-600 hover:underline focus:outline-none"
+                  title="클릭하면 상세 정보와 첨부 PO 문서를 볼 수 있습니다"
+                  @click="openDetailModal(proj)"
+                >
+                  {{ proj.po_number }}
+                </button>
+              </td>
               <td class="px-6 py-4 text-slate-700 font-semibold">{{ proj.name }}</td>
               <td class="px-6 py-4 text-slate-500 font-semibold">{{ getCustomerName(proj.customer_id) }}</td>
               <td class="px-6 py-4 text-slate-500">
@@ -120,8 +129,19 @@
       @limit-change="handleLimitChange"
     />
 
+    <!-- 프로젝트 상세 / 첨부 PO 문서 -->
+    <ProjectDetailModal
+      v-if="isDetailOpen && detailProjectId !== null"
+      :key="detailProjectId"
+      :is-open="isDetailOpen"
+      :project-id="detailProjectId"
+      :customer-name="detailCustomerName"
+      @close="isDetailOpen = false"
+      @updated="fetchProjects"
+    />
+
     <!-- Create/Edit Modal -->
-    <AppModal 
+    <AppModal
       :is-open="isModalOpen" 
       :title="isEditMode ? '프로젝트 정보 수정' : '신규 프로젝트 생성'" 
       size="md" 
@@ -293,6 +313,7 @@ import AppSearch from '@/components/common/AppSearch.vue'
 import AppTabs from '@/components/common/AppTabs.vue'
 import type { TabDefinition } from '@/components/common/AppTabs.vue'
 import ProjectItemsPanel from '@/components/domain/ProjectItemsPanel.vue'
+import ProjectDetailModal from '@/components/domain/ProjectDetailModal.vue'
 
 const route = useRoute()
 const uiStore = useUiStore()
@@ -320,6 +341,17 @@ const projectTabs = computed<TabDefinition[]>(() => {
     { value: '', label: '전체', count: c.TOTAL || 0 },
   ]
 })
+
+// ─── 프로젝트 상세 모달 ──────────────────────────────────────────────────
+const isDetailOpen = ref(false)
+const detailProjectId = ref<number | null>(null)
+const detailCustomerName = ref('')
+
+function openDetailModal(proj: any) {
+  detailProjectId.value = proj.id
+  detailCustomerName.value = getCustomerName(proj.customer_id)
+  isDetailOpen.value = true
+}
 
 function handleTabChange(tab: string) {
   statusFilter.value = tab

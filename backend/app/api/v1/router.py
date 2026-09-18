@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     customers,
     contacts,
     projects,
+    attachments,
     inventory,
     parts,
     approvals,
@@ -28,6 +29,8 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(customers.router, prefix="/customers", tags=["customers"])
 api_router.include_router(contacts.router, prefix="/contacts", tags=["contacts"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
+# 첨부파일 라우터는 /projects/{id}/attachments 와 /attachments/{id} 를 함께 제공하므로 prefix 없이 등록
+api_router.include_router(attachments.router, tags=["attachments"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
 api_router.include_router(parts.router, prefix="/parts", tags=["parts"])
 api_router.include_router(approvals.router, prefix="/approvals", tags=["approvals"])

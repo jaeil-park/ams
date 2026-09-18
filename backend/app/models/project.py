@@ -29,3 +29,6 @@ class Project(Base, TimestampMixin):
     customer = relationship("Customer", back_populates="projects")
     server_inventories = relationship("ServerInventory", back_populates="project")
     part_inventories = relationship("PartInventory", back_populates="project")
+    attachments = relationship(
+        "ProjectAttachment", back_populates="project", cascade="all, delete-orphan"
+    )
