@@ -29,6 +29,12 @@
       </div>
       
       <div class="flex items-center gap-4">
+        <!-- PO/프로젝트별 그룹 보기 -->
+        <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 cursor-pointer">
+          <input type="checkbox" v-model="groupByProject" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+          PO/프로젝트별 묶어보기
+        </label>
+
         <!-- Status Filter -->
         <div class="flex items-center gap-2">
           <span class="text-xs text-slate-400 font-semibold">장비상태:</span>
@@ -48,10 +54,67 @@
       </div>
     </div>
 
+    <!-- Grouped view: PO/프로젝트 단위로 묶어서 표시 (현재 페이지 기준) -->
+    <div v-if="groupByProject" class="space-y-3">
+      <p class="text-3xs text-slate-400 select-none">
+        현재 페이지에 조회된 {{ servers.length }}대를 PO/프로젝트 단위로 묶어 표시합니다.
+        전체를 한 번에 묶어 보려면 아래 '표시 건수'를 늘려주세요.
+      </p>
+      <div v-if="!loading && servers.length === 0" class="bg-white border border-dashed border-slate-200 rounded-lg py-10 text-center text-xs text-slate-400">
+        조회된 서버가 없습니다.
+      </div>
+      <div
+        v-for="group in groupedServers"
+        :key="group.key"
+        class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden"
+      >
+        <button
+          type="button"
+          class="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+          @click="toggleGroup(group.key)"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <svg
+              class="h-4 w-4 text-slate-400 transition-transform shrink-0"
+              :class="collapsedGroups.has(group.key) ? '' : 'rotate-90'"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="font-mono text-xs font-bold text-blue-600 shrink-0">{{ group.poNumber }}</span>
+            <span class="text-xs font-semibold text-slate-700 truncate">{{ group.projectName }}</span>
+          </div>
+          <span class="text-xs font-bold text-slate-500 shrink-0 ml-3">{{ group.items.length }} 대</span>
+        </button>
+        <div v-show="!collapsedGroups.has(group.key)" class="divide-y divide-slate-100">
+          <div
+            v-for="item in group.items"
+            :key="item.id"
+            class="flex items-center gap-3 px-4 py-2.5 text-xs hover:bg-slate-50"
+          >
+            <span class="text-slate-400 font-mono w-24 shrink-0">{{ item.in_date || '-' }}</span>
+            <span
+              class="font-mono font-bold text-blue-600 cursor-pointer hover:underline w-32 shrink-0"
+              @click="viewDetails(item.id)"
+            >
+              {{ item.serial_tag }}
+            </span>
+            <span class="text-slate-600 font-medium flex-1 truncate">{{ item.model }}</span>
+            <AppBadge :status="item.status" />
+            <div class="flex items-center gap-2 shrink-0">
+              <AppButton variant="secondary" class="px-2 py-1 text-2xs" @click="openEditModal(item)">수정</AppButton>
+              <AppButton variant="danger" class="px-2 py-1 text-2xs" @click="handleDelete(item.id)">삭제</AppButton>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Master Table -->
-    <AppTable 
-      :columns="columns" 
-      :items="servers" 
+    <AppTable
+      v-else
+      :columns="columns"
+      :items="servers"
       :loading="loading"
       @sort="handleSort"
     >
@@ -86,6 +149,7 @@
       :total-items="totalItems" 
       :limit="limit"
       @page-change="handlePageChange"
+      @limit-change="handleLimitChange"
     />
 
     <!-- 1. Create/Edit Single Modal -->
@@ -396,6 +460,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
 import AppButton from '@/components/common/AppButton.vue'
@@ -407,6 +472,7 @@ import AppPagination from '@/components/common/AppPagination.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import ServerDetailModal from '@/components/domain/ServerDetailModal.vue'
 
+const route = useRoute()
 const uiStore = useUiStore()
 
 const servers = ref<any[]>([])
@@ -509,9 +575,17 @@ const isDetailOpen = ref(false)
 const currentServerId = ref<number | null>(null)
 
 onMounted(() => {
+  applyRouteQuery()
   fetchInventory()
   fetchActiveProjects()
 })
+
+// 대시보드 등에서 넘어올 때 URL 쿼리(status/search)를 초기 필터로 반영한다.
+function applyRouteQuery() {
+  const q = route.query
+  if (typeof q.status === 'string' && q.status) statusFilter.value = q.status
+  if (typeof q.search === 'string' && q.search) search.value = q.search
+}
 
 async function fetchInventory() {
   loading.value = true
@@ -545,6 +619,41 @@ async function fetchActiveProjects() {
   }
 }
 
+// ─── PO/프로젝트별 그룹 보기 ─────────────────────────────────────────────
+// 서버는 S/N·워런티·IP가 장비마다 다르므로 행 자체는 1대 = 1행을 유지하고,
+// 보기 방식만 PO 단위로 접어서 묶는다.
+const groupByProject = ref(false)
+const collapsedGroups = ref<Set<string>>(new Set())
+
+const groupedServers = computed(() => {
+  const map = new Map<string, { key: string; poNumber: string; projectName: string; items: any[] }>()
+  for (const s of servers.value) {
+    const key = String(s.project_id ?? 'none')
+    if (!map.has(key)) {
+      const proj = s.project_id ? activeProjects.value.find(p => p.id === s.project_id) : null
+      map.set(key, {
+        key,
+        poNumber: proj?.po_number || (s.project_id ? `ID:${s.project_id}` : '미할당'),
+        projectName: getProjectName(s.project_id),
+        items: [],
+      })
+    }
+    map.get(key)!.items.push(s)
+  }
+  // 대수가 많은 그룹부터, 미할당은 항상 맨 뒤
+  return [...map.values()].sort((a, b) => {
+    if (a.key === 'none') return 1
+    if (b.key === 'none') return -1
+    return b.items.length - a.items.length
+  })
+})
+
+function toggleGroup(key: string) {
+  const next = new Set(collapsedGroups.value)
+  next.has(key) ? next.delete(key) : next.add(key)
+  collapsedGroups.value = next
+}
+
 function getProjectName(projId: number | null) {
   if (!projId) return '미할당 (가용재고)'
   const p = activeProjects.value.find(item => item.id === projId)
@@ -559,6 +668,12 @@ function handleSearch(val: string) {
 
 function handlePageChange(newPage: number) {
   page.value = newPage
+  fetchInventory()
+}
+
+function handleLimitChange(newLimit: number) {
+  limit.value = newLimit
+  page.value = 1
   fetchInventory()
 }
 

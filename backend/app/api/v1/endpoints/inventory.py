@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("", response_model=ResponseEnvelope[list[schemas.inventory.ServerInventoryOut]])
 async def list_inventory(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     search: str | None = Query(None),
     status_filter: Literal["IN_STOCK", "RESERVED", "SCHEDULED", "DELIVERED", "RMA"] | None = Query(None, alias="status"),
     project_id: int | None = Query(None),

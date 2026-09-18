@@ -20,7 +20,7 @@ router = APIRouter()
 @router.get("", response_model=ResponseEnvelope[list[schemas.part.PartInventoryOut]])
 async def list_parts(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     search: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -32,7 +32,12 @@ async def list_parts(
     count_query = select(func.count(models.PartInventory.id)).where(models.PartInventory.is_deleted == False)
     
     if search:
-        search_filter = models.PartInventory.model.ilike(f"%{search}%") | models.PartInventory.location.ilike(f"%{search}%")
+        search_filter = (
+            models.PartInventory.model.ilike(f"%{search}%")
+            | models.PartInventory.location.ilike(f"%{search}%")
+            | models.PartInventory.category.ilike(f"%{search}%")
+            | models.PartInventory.part_number.ilike(f"%{search}%")
+        )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
         

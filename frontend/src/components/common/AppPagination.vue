@@ -18,12 +18,25 @@
     </div>
     
     <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-      <div>
+      <div class="flex items-center gap-3">
         <p class="text-xs text-slate-500">
-          총 <span class="font-medium text-slate-700">{{ totalItems }}</span>개 중 
-          <span class="font-medium text-slate-700">{{ startRange }}</span> - 
+          총 <span class="font-medium text-slate-700">{{ totalItems }}</span>개 중
+          <span class="font-medium text-slate-700">{{ startRange }}</span> -
           <span class="font-medium text-slate-700">{{ endRange }}</span> 표시
         </p>
+        <!-- 페이지당 표시 건수 -->
+        <div class="flex items-center gap-1.5">
+          <label class="text-xs text-slate-400 font-semibold select-none">표시 건수:</label>
+          <select
+            :value="limit"
+            class="text-xs font-semibold bg-white border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            @change="changeLimit($event)"
+          >
+            <option v-for="opt in pageSizeOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
       </div>
       <div>
         <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
@@ -80,12 +93,27 @@ interface Props {
   totalPages: number
   totalItems: number
   limit: number
+  /** 페이지당 표시 건수 선택지 (미지정 시 기본값 사용) */
+  pageSizes?: number[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  pageSizes: () => [10, 30, 50, 100, 1000],
+})
 const emit = defineEmits<{
   (e: 'page-change', page: number): void
+  (e: 'limit-change', limit: number): void
 }>()
+
+// 1000건은 사실상 '전체'로 취급 (백엔드 limit 상한과 동일)
+const pageSizeOptions = computed(() =>
+  props.pageSizes.map(v => ({ value: v, label: v >= 1000 ? '전체' : `${v}개` })),
+)
+
+function changeLimit(e: Event) {
+  const next = Number((e.target as HTMLSelectElement).value)
+  if (next && next !== props.limit) emit('limit-change', next)
+}
 
 const startRange = computed(() => (props.currentPage - 1) * props.limit + 1)
 const endRange = computed(() => Math.min(props.currentPage * props.limit, props.totalItems))

@@ -129,6 +129,7 @@
       :total-items="totalItems" 
       :limit="limit"
       @page-change="handlePageChange"
+      @limit-change="handleLimitChange"
     />
 
     <!-- Create/Edit Modal -->
@@ -293,6 +294,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
 import AppButton from '@/components/common/AppButton.vue'
@@ -302,6 +304,7 @@ import AppModal from '@/components/common/AppModal.vue'
 import AppSearch from '@/components/common/AppSearch.vue'
 import ProjectItemsPanel from '@/components/domain/ProjectItemsPanel.vue'
 
+const route = useRoute()
 const uiStore = useUiStore()
 
 const projects = ref<any[]>([])
@@ -415,9 +418,17 @@ async function addAndApplyContact() {
 }
 
 onMounted(() => {
+  applyRouteQuery()
   fetchProjects()
   fetchActiveCustomers()
 })
+
+// 대시보드 등에서 넘어올 때 URL 쿼리(status/search)를 초기 필터로 반영한다.
+function applyRouteQuery() {
+  const q = route.query
+  if (typeof q.status === 'string' && q.status) statusFilter.value = q.status
+  if (typeof q.search === 'string' && q.search) search.value = q.search
+}
 
 async function fetchProjects() {
   loading.value = true
@@ -473,6 +484,12 @@ function handleSearch(val: string) {
 
 function handlePageChange(newPage: number) {
   page.value = newPage
+  fetchProjects()
+}
+
+function handleLimitChange(newLimit: number) {
+  limit.value = newLimit
+  page.value = 1
   fetchProjects()
 }
 

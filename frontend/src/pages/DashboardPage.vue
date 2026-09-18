@@ -154,8 +154,9 @@
 
       <!-- Right Chart: Parts Donut Summary -->
       <div class="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col min-h-[320px]">
-        <h3 class="text-sm font-semibold text-slate-800 mb-4 select-none">부품(파트) 보유 현황</h3>
-        
+        <h3 class="text-sm font-semibold text-slate-800 mb-1 select-none">부품(파트) 보유 현황</h3>
+        <p class="text-3xs text-slate-400 mb-3 select-none">구분(카테고리) 기준 집계</p>
+
         <div v-if="parts.length === 0" class="flex-1 flex items-center justify-center text-slate-400 text-xs select-none">
           파트 재고 데이터가 없습니다.
         </div>
@@ -165,7 +166,7 @@
             <!-- Simulated Donut/Pie Chart with SVG -->
             <svg class="h-32 w-32 transform -rotate-90" viewBox="0 0 32 32">
               <circle cx="16" cy="16" r="14" fill="transparent" stroke="#E2E8F0" stroke-width="4" />
-              <template v-for="(part, idx) in partsWithStroke" :key="part.model">
+              <template v-for="(part, idx) in partsWithStroke" :key="part.category">
                 <circle 
                   cx="16" 
                   cy="16" 
@@ -185,14 +186,17 @@
           </div>
           <!-- Legend list -->
           <div class="mt-4 space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
-            <div 
-              v-for="(part, idx) in parts" 
-              :key="part.model" 
-              class="flex items-center justify-between text-xs text-slate-600 font-medium"
+            <div
+              v-for="(part, idx) in parts"
+              :key="part.category"
+              class="flex items-center justify-between text-xs text-slate-600 font-medium cursor-pointer hover:text-blue-600"
+              :title="`${part.category} — 품목 ${part.item_count}종 / 총 ${part.qty}개`"
+              @click="goTo('parts', { search: part.category })"
             >
               <div class="flex items-center gap-1.5 truncate">
                 <span :style="{ backgroundColor: colors[idx % colors.length] }" class="h-2 w-2 rounded-full shrink-0"></span>
-                <span class="truncate" :title="part.model">{{ part.model }}</span>
+                <span class="truncate">{{ part.category }}</span>
+                <span class="text-slate-400 shrink-0">({{ part.item_count }}종)</span>
               </div>
               <span class="font-bold text-slate-800 shrink-0">{{ part.qty }} 개</span>
             </div>

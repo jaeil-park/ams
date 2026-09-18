@@ -3,7 +3,7 @@ app/api/v1/endpoints/projects.py — 프로젝트 API
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Literal
 
@@ -14,11 +14,39 @@ from app.services.audit import log_action
 
 router = APIRouter()
 
+# 프로젝트 진행상태 → 소속 서버 장비상태 연동 규칙.
+# RMA 장비는 예외 처리가 필요한 별도 트랙이므로 어떤 경우에도 자동 변경하지 않는다.
+_PROJECT_STATUS_TO_SERVER_STATUS = {
+    "COMPLETED": "DELIVERED",
+    "IN_PROGRESS": "SCHEDULED",
+}
+
+
+async def _sync_server_status_with_project(
+    db: AsyncSession, *, project_id: int, project_status: str
+) -> int:
+    """프로젝트 상태 변경 시 소속 서버들의 장비상태를 함께 맞춘다. 변경된 건수를 반환."""
+    target_status = _PROJECT_STATUS_TO_SERVER_STATUS.get(project_status)
+    if not target_status:
+        return 0
+
+    result = await db.execute(
+        sa_update(models.ServerInventory)
+        .where(
+            models.ServerInventory.project_id == project_id,
+            models.ServerInventory.is_deleted == False,
+            models.ServerInventory.status != "RMA",
+            models.ServerInventory.status != target_status,
+        )
+        .values(status=target_status)
+    )
+    return result.rowcount or 0
+
 
 @router.get("", response_model=ResponseEnvelope[list[schemas.project.ProjectOut]])
 async def list_projects(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     search: str | None = Query(None),
     status_filter: Literal["WAITING", "IN_PROGRESS", "COMPLETED"] | None = Query(None, alias="status"),
     customer_id: int | None = Query(None),
@@ -141,7 +169,23 @@ async def update_project(
             )
             
     before_state = {"name": project.name, "status": project.status}
+    status_changed_to = (
+        obj_in.status if obj_in.status is not None and obj_in.status != project.status else None
+    )
     updated = await crud.project.update(db, db_obj=project, obj_in=obj_in)
+
+    # 프로젝트 완료 처리 시 소속 서버도 납품완료로 연동 (진행중 → 납품예정)
+    synced_count = 0
+    if status_changed_to:
+        synced_count = await _sync_server_status_with_project(
+            db, project_id=id, project_status=status_changed_to
+        )
+        if synced_count:
+            await db.commit()
+
+    after_state = obj_in.model_dump(exclude_unset=True, mode="json")
+    if synced_count:
+        after_state["synced_servers"] = synced_count
     await log_action(
         db,
         user_id=current_user.id,
@@ -149,7 +193,7 @@ async def update_project(
         resource_type="PROJECT",
         resource_id=id,
         before=before_state,
-        after=obj_in.model_dump(exclude_unset=True, mode="json"),
+        after=after_state,
     )
     return ResponseEnvelope(data=updated)
 

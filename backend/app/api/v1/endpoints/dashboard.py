@@ -117,18 +117,31 @@ async def get_parts_summary(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """[대시보드 차트] 파트 모델별 재고 수량 도넛 차트 통계"""
+    """
+    [대시보드 차트] 파트 구분(카테고리)별 재고 수량 도넛 차트 통계
+    - 모델 단위로 쪼개면 항목이 수십 개로 늘어나 도넛이 읽히지 않으므로 카테고리로 묶는다.
+    - 카테고리가 비어 있는 레코드는 '미분류'로 집계한다.
+    """
     query = (
         select(
-            models.PartInventory.model.label("model"),
-            func.sum(models.PartInventory.qty).label("total_qty")
+            models.PartInventory.category.label("category"),
+            func.sum(models.PartInventory.qty).label("total_qty"),
+            func.count(models.PartInventory.id).label("item_count"),
         )
         .where(models.PartInventory.is_deleted == False)
-        .group_by(models.PartInventory.model)
+        .group_by(models.PartInventory.category)
     )
-    
+
     result = await db.execute(query)
     rows = result.all()
-    
-    formatted_data = [{"model": r.model, "qty": int(r.total_qty or 0)} for r in rows]
+
+    formatted_data = [
+        {
+            "category": r.category or "미분류",
+            "qty": int(r.total_qty or 0),
+            "item_count": int(r.item_count or 0),
+        }
+        for r in rows
+    ]
+    formatted_data.sort(key=lambda x: x["qty"], reverse=True)
     return ResponseEnvelope(data=formatted_data)

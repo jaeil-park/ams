@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("", response_model=ResponseEnvelope[list[schemas.SystemLogOut]])
 async def list_system_logs(
     page: int = Query(1, ge=1),
-    limit: int = Query(30, ge=1, le=100),
+    limit: int = Query(30, ge=1, le=1000),
     level: str | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),

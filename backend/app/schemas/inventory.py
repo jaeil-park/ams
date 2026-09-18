@@ -3,11 +3,25 @@ app/schemas/inventory.py — ServerInventory Pydantic v2 스키마
 """
 
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Literal
 
 
-class ServerInventoryBase(BaseModel):
+class _BlankToNoneMixin(BaseModel):
+    """
+    HTML 폼은 비워 둔 숫자/날짜 입력을 빈 문자열("")로 전송한다.
+    이를 그대로 검증하면 int_parsing / date_parsing 422가 발생하므로 None으로 정규화한다.
+    """
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _blank_to_none(cls, v):
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
+
+class ServerInventoryBase(_BlankToNoneMixin):
     serial_tag: str = Field(..., min_length=1, max_length=100)
     category: Literal["SERVER"] = "SERVER"
     model: str = Field(..., min_length=1, max_length=100)
@@ -62,7 +76,7 @@ class ServerInventoryCreate(ServerInventoryBase):
     pass
 
 
-class ServerInventoryUpdate(BaseModel):
+class ServerInventoryUpdate(_BlankToNoneMixin):
     serial_tag: str | None = Field(None, min_length=1, max_length=100)
     model: str | None = Field(None, min_length=1, max_length=100)
     vendor: str | None = Field(None, max_length=100)

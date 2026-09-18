@@ -133,12 +133,12 @@
 
     <!-- 페이지네이션 -->
     <AppPagination
-      v-if="totalPages > 1"
       :current-page="currentPage"
       :total-pages="totalPages"
-      :total-items="approvals.length"
-      :limit="30"
+      :total-items="total"
+      :limit="limit"
       @page-change="onPageChange"
+      @limit-change="onLimitChange"
     />
 
     <!-- 반려 사유 입력 모달 -->
@@ -189,6 +189,8 @@ const uiStore = useUiStore()
 const approvals = ref<any[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
+const limit = ref(30)
+const total = ref(0)
 const totalPages = ref(1)
 const statusFilter = ref('')
 const processingId = ref<number | null>(null)
@@ -212,11 +214,12 @@ onMounted(() => {
 async function fetchApprovals() {
   loading.value = true
   try {
-    const params: any = { page: currentPage.value, limit: 30 }
+    const params: any = { page: currentPage.value, limit: limit.value }
     if (statusFilter.value) params.status = statusFilter.value
     const res = await api.get('/approvals', { params })
     approvals.value = res.data.data || []
     totalPages.value = res.data.meta?.total_pages || 1
+    total.value = res.data.meta?.total || 0
   } catch (err) {
     console.error(err)
   } finally {
@@ -258,6 +261,12 @@ async function handleReject() {
   } finally {
     processingId.value = null
   }
+}
+
+function onLimitChange(newLimit: number) {
+  limit.value = newLimit
+  currentPage.value = 1
+  fetchApprovals()
 }
 
 function onPageChange(page: number) {

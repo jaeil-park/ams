@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("", response_model=ResponseEnvelope[list[schemas.customer.CustomerOut]])
 async def list_customers(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     search: str | None = Query(None),
     status_filter: Literal["ACTIVE", "INACTIVE"] | None = Query(None, alias="status"),
     db: AsyncSession = Depends(get_db),

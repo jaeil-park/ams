@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("", response_model=ResponseEnvelope[list[schemas.AuditLogOut]])
 async def list_audit_logs(
     page: int = Query(1, ge=1),
-    limit: int = Query(30, ge=1, le=100),
+    limit: int = Query(30, ge=1, le=1000),
     user_id: int | None = Query(None),
     resource_type: str | None = Query(None),
     action: str | None = Query(None),

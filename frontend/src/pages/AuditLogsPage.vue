@@ -150,12 +150,12 @@
 
     <!-- 페이지네이션 -->
     <AppPagination
-      v-if="totalPages > 1"
       :current-page="currentPage"
       :total-pages="totalPages"
       :total-items="total"
-      :limit="30"
+      :limit="limit"
       @page-change="onPageChange"
+      @limit-change="onLimitChange"
     />
   </div>
 </template>
@@ -168,6 +168,7 @@ import AppPagination from '@/components/common/AppPagination.vue'
 const logs = ref<any[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
+const limit = ref(30)
 const totalPages = ref(1)
 const total = ref(0)
 
@@ -185,7 +186,7 @@ onMounted(() => {
 async function fetchLogs() {
   loading.value = true
   try {
-    const params: any = { page: currentPage.value, limit: 30 }
+    const params: any = { page: currentPage.value, limit: limit.value }
     if (filters.value.resource_type) params.resource_type = filters.value.resource_type
     if (filters.value.action) params.action = filters.value.action
     if (filters.value.date_from) params.date_from = filters.value.date_from
@@ -204,6 +205,12 @@ async function fetchLogs() {
 
 function resetFilters() {
   filters.value = { resource_type: '', action: '', date_from: '', date_to: '' }
+  currentPage.value = 1
+  fetchLogs()
+}
+
+function onLimitChange(newLimit: number) {
+  limit.value = newLimit
   currentPage.value = 1
   fetchLogs()
 }

@@ -60,6 +60,7 @@
       :total-items="totalItems" 
       :limit="limit"
       @page-change="handlePageChange"
+      @limit-change="handleLimitChange"
     />
 
     <!-- Create/Edit Modal -->
@@ -302,6 +303,12 @@ function handleSearch(val: string) {
 
 function handlePageChange(newPage: number) {
   page.value = newPage
+  fetchCustomers()
+}
+
+function handleLimitChange(newLimit: number) {
+  limit.value = newLimit
+  page.value = 1
   fetchCustomers()
 }
 

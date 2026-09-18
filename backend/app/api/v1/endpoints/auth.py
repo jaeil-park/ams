@@ -5,6 +5,7 @@ app/api/v1/endpoints/auth.py — JWT 로그인 및 사용자 인증 엔드포인
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import AliasChoices, BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -15,6 +16,18 @@ from app.models.user import User
 from app.schemas.common import ResponseEnvelope
 
 router = APIRouter()
+
+
+class RefreshRequest(BaseModel):
+    """
+    Refresh Token 요청 바디.
+    - 프론트엔드(axios 인터셉터)는 {"refresh_token": "..."} 형태로 전송한다.
+    - 과거 쿼리 파라미터 이름(refresh_token_input)도 바디 키로 함께 허용한다.
+    """
+    refresh_token: str = Field(
+        ...,
+        validation_alias=AliasChoices("refresh_token", "refresh_token_input"),
+    )
 
 
 @router.post("/login")
@@ -53,13 +66,13 @@ async def login(
 
 @router.post("/refresh")
 async def refresh_token(
-    refresh_token_input: str,
+    body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """Refresh Token으로 Access Token을 갱신합니다."""
     try:
         payload = security.jwt.decode(
-            refresh_token_input, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            body.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         email: str = payload.get("sub")
         token_type: str = payload.get("type")

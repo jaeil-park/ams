@@ -82,6 +82,7 @@
       :total-items="totalItems" 
       :limit="limit"
       @page-change="handlePageChange"
+      @limit-change="handleLimitChange"
     />
 
     <!-- 1. Create/Edit Part Modal -->
@@ -276,6 +277,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
 import AppButton from '@/components/common/AppButton.vue'
@@ -287,6 +289,7 @@ import AppPagination from '@/components/common/AppPagination.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import PartHistoryModal from '@/components/domain/PartHistoryModal.vue'
 
+const route = useRoute()
 const uiStore = useUiStore()
 
 const parts = ref<any[]>([])
@@ -402,11 +405,18 @@ const isHistoryOpen = ref(false)
 const currentPartId = ref<number | null>(null)
 
 onMounted(() => {
+  applyRouteQuery()
   fetchParts()
   fetchActiveProjects()
   fetchActiveCustomers()
   fetchCategoryOptions()
 })
+
+// 대시보드 등에서 넘어올 때 URL 쿼리(search)를 초기 검색어로 반영한다.
+function applyRouteQuery() {
+  const q = route.query
+  if (typeof q.search === 'string' && q.search) search.value = q.search
+}
 
 async function fetchParts() {
   loading.value = true
@@ -469,6 +479,12 @@ function handleSearch(val: string) {
 
 function handlePageChange(newPage: number) {
   page.value = newPage
+  fetchParts()
+}
+
+function handleLimitChange(newLimit: number) {
+  limit.value = newLimit
+  page.value = 1
   fetchParts()
 }
 

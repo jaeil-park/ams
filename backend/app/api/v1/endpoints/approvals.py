@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("", response_model=ResponseEnvelope[list[schemas.part.ApprovalOut]])
 async def list_approvals(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     status_filter: str | None = Query(None, alias="status"),
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(require_admin),
