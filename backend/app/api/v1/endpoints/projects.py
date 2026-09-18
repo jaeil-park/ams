@@ -62,6 +62,9 @@ async def _sync_server_status_with_project(
             models.ServerInventory.status != target_status,
         )
         .values(status=target_status)
+        # 세션에 이미 로드된 ServerInventory 객체를 되돌아보지 않는 일괄 UPDATE.
+        # 이 요청에서 그 객체들을 다시 쓰지 않으므로 동기화가 필요 없다.
+        .execution_options(synchronize_session=False)
     )
     return result.rowcount or 0
 
@@ -226,13 +229,14 @@ async def update_project(
             )
             
     before_state = {"name": project.name, "status": project.status}
-    status_changed_to = (
-        obj_in.status if obj_in.status is not None and obj_in.status != project.status else None
-    )
+    # 상태 값이 함께 전달되면 '바뀌었는지'와 무관하게 연동을 수행한다.
+    # 전환 시점에만 돌리면, 기능 추가 이전에 이미 완료 처리된 프로젝트나
+    # 완료 후에 추가된 서버가 영영 동기화되지 않는다 (멱등하게 맞추는 것이 안전하다).
+    sync_target_status = obj_in.status if obj_in.status is not None else None
 
     # PO 문서는 필수 첨부다 — 완료 처리 시점에는 반드시 있어야 한다.
     # (등록 시점에는 PO가 아직 도착하지 않았을 수 있으므로 그때는 막지 않는다)
-    if status_changed_to == "COMPLETED":
+    if sync_target_status == "COMPLETED" and project.status != "COMPLETED":
         if not await _project_ids_with_po(db, [id]):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -244,9 +248,9 @@ async def update_project(
 
     # 프로젝트 완료 처리 시 소속 서버도 납품완료로 연동 (진행중 → 납품예정)
     synced_count = 0
-    if status_changed_to:
+    if sync_target_status:
         synced_count = await _sync_server_status_with_project(
-            db, project_id=id, project_status=status_changed_to
+            db, project_id=id, project_status=sync_target_status
         )
         if synced_count:
             await db.commit()

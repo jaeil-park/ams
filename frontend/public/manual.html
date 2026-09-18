@@ -164,7 +164,7 @@
   <main>
     <header class="page-head">
       <h1>AMS ERP 사용 설명서</h1>
-      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.4.0</strong></p>
+      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.4.1</strong></p>
     </header>
 
     <section id="intro">
@@ -290,6 +290,9 @@
       <p>이미 올려둔 PO 문서는 목록의 <strong>내용 보기</strong> 버튼으로 다시 읽을 수 있습니다. 이 경우에는 조회만 하며 값을 바꾸지 않습니다.</p>
       <div class="note">자동 읽기는 <strong>Ariba 발행 PO(.htm)</strong>에만 동작합니다. PDF나 다른 양식의 PO는 파일 보관·다운로드만 되고 내용 추출은 되지 않습니다(첨부 자체는 정상이므로 완료 처리도 가능합니다).</div>
 
+      <h3>진행상태 변경</h3>
+      <p>목록의 <strong>상태 배지를 클릭</strong>하면 대기 / 진행중 / 완료 메뉴가 열려 바로 변경할 수 있습니다. 수정 창을 열 필요가 없습니다. 완료로 바꿀 때는 소속 서버도 함께 바뀐다는 확인 창이 뜹니다.</p>
+
       <h3>진행상태 변경 시 납품 상태 자동 연동</h3>
       <p>프로젝트의 진행상태를 바꾸면, 그 프로젝트에 소속된 <strong>서버들의 장비상태가 함께 변경</strong>됩니다.</p>
       <table>
@@ -299,6 +302,7 @@
       </table>
       <div class="warn"><strong>RMA 상태의 장비는 자동 변경되지 않습니다.</strong> 반품/교환은 별도로 관리해야 하는 예외 건이므로, 프로젝트를 완료 처리해도 RMA 장비는 그대로 남습니다. 필요하면 납품목록에서 개별로 상태를 바꿔주세요.</div>
       <div class="note">자동으로 변경된 서버 대수는 <strong>감사 로그</strong>에 함께 기록되므로 나중에 확인할 수 있습니다.</div>
+      <div class="note">이미 완료 상태인 프로젝트에 서버를 나중에 추가했다면, 상태 메뉴에서 <strong>완료를 다시 선택</strong>하면 새로 추가된 서버까지 일괄로 맞춰집니다.</div>
     </section>
 
     <section id="inventory">

@@ -106,7 +106,21 @@
                 <div class="text-3xs font-mono">{{ proj.phone || '-' }}</div>
               </td>
               <td class="px-6 py-4 text-slate-500 font-mono">{{ proj.scheduled_date || '-' }}</td>
-              <td class="px-6 py-4"><AppBadge :status="proj.status" /></td>
+              <!-- 상태: 클릭해서 바로 변경 -->
+              <td class="px-6 py-4">
+                <button
+                  type="button"
+                  class="flex items-center gap-1 rounded hover:bg-slate-100 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                  :disabled="statusSavingId === proj.id"
+                  title="클릭해서 진행상태를 변경합니다"
+                  @click.stop="toggleStatusMenu(proj, $event)"
+                >
+                  <AppBadge :status="proj.status" />
+                  <svg class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </td>
               <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
                   <AppButton variant="secondary" class="px-2 py-1 text-2xs" @click="openEditModal(proj)">수정</AppButton>
@@ -135,6 +149,29 @@
       @page-change="handlePageChange"
       @limit-change="handleLimitChange"
     />
+
+    <!-- 진행상태 변경 메뉴 — 테이블의 가로 스크롤 영역에 잘리지 않도록 fixed 로 띄운다 -->
+    <div
+      v-if="statusMenuProject"
+      class="fixed z-50 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1"
+      :style="{ top: `${statusMenuPos.top}px`, left: `${statusMenuPos.left}px` }"
+      @click.stop
+    >
+      <button
+        v-for="opt in STATUS_OPTIONS"
+        :key="opt.value"
+        type="button"
+        class="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-left hover:bg-slate-50"
+        :class="statusMenuProject.status === opt.value ? 'text-blue-600' : 'text-slate-600'"
+        @click="changeStatus(statusMenuProject, opt.value)"
+      >
+        <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="opt.dotClass"></span>
+        {{ opt.label }}
+        <svg v-if="statusMenuProject.status === opt.value" class="h-3.5 w-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+      </button>
+    </div>
 
     <!-- 프로젝트 상세 / 첨부 PO 문서 -->
     <ProjectDetailModal
@@ -308,7 +345,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
@@ -348,6 +385,68 @@ const projectTabs = computed<TabDefinition[]>(() => {
     { value: '', label: '전체', count: c.TOTAL || 0 },
   ]
 })
+
+// ─── 목록에서 바로 진행상태 변경 ─────────────────────────────────────────
+const STATUS_OPTIONS = [
+  { value: 'WAITING', label: '대기', dotClass: 'bg-amber-500' },
+  { value: 'IN_PROGRESS', label: '진행중', dotClass: 'bg-blue-500' },
+  { value: 'COMPLETED', label: '완료', dotClass: 'bg-emerald-500' },
+]
+
+const statusMenuProject = ref<any>(null)
+const statusMenuPos = ref({ top: 0, left: 0 })
+const statusSavingId = ref<number | null>(null)
+
+function toggleStatusMenu(proj: any, event: MouseEvent) {
+  if (statusMenuProject.value?.id === proj.id) {
+    closeStatusMenu()
+    return
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const MENU_HEIGHT = 110
+  // 화면 아래쪽 행에서는 버튼 위로 띄운다
+  const openUpward = rect.bottom + MENU_HEIGHT > window.innerHeight
+  statusMenuPos.value = {
+    top: openUpward ? rect.top - MENU_HEIGHT - 4 : rect.bottom + 4,
+    left: rect.left,
+  }
+  statusMenuProject.value = proj
+}
+
+function closeStatusMenu() {
+  statusMenuProject.value = null
+}
+
+async function changeStatus(proj: any, newStatus: string) {
+  closeStatusMenu()
+
+  const label = STATUS_OPTIONS.find(o => o.value === newStatus)?.label || newStatus
+  const isResync = proj.status === newStatus
+
+  // 이미 같은 상태여도 다시 선택할 수 있게 둔다 — 완료 후에 추가된 서버를 맞추는 용도.
+  if (isResync && newStatus !== 'COMPLETED' && newStatus !== 'IN_PROGRESS') return
+
+  const message = isResync
+    ? `'${proj.name}'은(는) 이미 ${label} 상태입니다.\n소속 서버의 장비상태를 다시 맞출까요? (RMA 제외)`
+    : `'${proj.name}'을(를) ${label} 처리하시겠습니까?` +
+      (newStatus === 'COMPLETED' ? '\n소속 서버의 장비상태도 납품완료로 함께 변경됩니다. (RMA 제외)' : '')
+  if ((newStatus === 'COMPLETED' || isResync) && !confirm(message)) return
+
+  statusSavingId.value = proj.id
+  try {
+    await api.patch(`/projects/${proj.id}`, { status: newStatus })
+    uiStore.addToast(
+      isResync ? `소속 서버 장비상태를 다시 맞췄습니다.` : `진행상태를 '${label}'(으)로 변경했습니다.`,
+      'success',
+    )
+    await fetchProjects()
+  } catch (error: any) {
+    console.error(error)
+    uiStore.addToast(error.response?.data?.detail || '진행상태 변경 실패', 'error')
+  } finally {
+    statusSavingId.value = null
+  }
+}
 
 // ─── 프로젝트 상세 모달 ──────────────────────────────────────────────────
 const isDetailOpen = ref(false)
@@ -481,6 +580,12 @@ onMounted(() => {
   applyRouteQuery()
   fetchProjects()
   fetchActiveCustomers()
+  // 상태 변경 메뉴는 바깥을 누르면 닫는다
+  document.addEventListener('click', closeStatusMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeStatusMenu)
 })
 
 // 대시보드 등에서 넘어올 때 URL 쿼리(status/search)를 초기 필터로 반영한다.
