@@ -241,7 +241,15 @@
       <p>목록의 <strong>PO 번호</strong>를 클릭하면 상세 팝업이 열립니다. 프로젝트 기본정보, 첨부파일, 이 프로젝트에 묶인 서버·파트를 한 화면에서 볼 수 있습니다.</p>
 
       <h4 style="font-size:13px;margin:14px 0 6px;">첨부파일</h4>
-      <p>PO 문서뿐 아니라 견적서·검수확인서 등 프로젝트 관련 문서를 함께 보관할 수 있습니다. 구분(PO / 견적서 / 검수확인서 / 기타)을 고르고 <strong>파일 첨부</strong>를 누르면 업로드되며, 목록에서 <strong>다운로드</strong> 또는 <strong>삭제</strong>할 수 있습니다. 파일당 최대 <strong>10MB</strong>입니다.</p>
+      <p>PO 문서뿐 아니라 프로젝트 관련 문서를 구분해서 함께 보관할 수 있습니다. 구분을 고르고 <strong>파일 첨부</strong>를 누르면 업로드되며, 목록에서 <strong>다운로드</strong> 또는 <strong>삭제</strong>할 수 있습니다. 파일당 최대 <strong>10MB</strong>이고, 파일 형식에는 제한이 없습니다.</p>
+      <table>
+        <tr><th>구분</th><th>용도</th></tr>
+        <tr><td>PO</td><td>구매 오더. Ariba 발행 <code>.htm</code>이면 내용을 자동으로 읽습니다.</td></tr>
+        <tr><td>견적서</td><td>고객사에 제출한 견적</td></tr>
+        <tr><td>검수확인서</td><td>납품 후 검수 완료 확인 문서</td></tr>
+        <tr><td>인수인계서</td><td>장비/업무 인수인계 문서</td></tr>
+        <tr><td>기타</td><td>위에 해당하지 않는 모든 문서</td></tr>
+      </table>
       <div class="warn">첨부한 문서는 화면에서 직접 열리지 않고 <strong>항상 다운로드</strong>됩니다. 외부에서 받은 문서(특히 HTML)를 AMS 화면 안에서 실행하면 로그인 정보가 노출될 수 있어, 의도적으로 그렇게 막아두었습니다.</div>
 
       <h4 style="font-size:13px;margin:14px 0 6px;">PO 내용 자동 읽기</h4>

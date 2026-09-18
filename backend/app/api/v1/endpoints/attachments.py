@@ -26,7 +26,8 @@ from app.services.po_parser import is_parsable_po, parse_ariba_po
 router = APIRouter()
 
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10MB
-ALLOWED_KINDS = ("PO", "QUOTE", "INSPECTION", "OTHER")
+# PO=구매오더, QUOTE=견적서, INSPECTION=검수확인서, HANDOVER=인수인계서, OTHER=기타
+ALLOWED_KINDS = ("PO", "QUOTE", "INSPECTION", "HANDOVER", "OTHER")
 
 # 브라우저가 실행/렌더링할 수 있는 형식은 다운로드 시 중립 타입으로 바꿔 내려보낸다.
 _SAFE_DOWNLOAD_TYPE = "application/octet-stream"

@@ -30,6 +30,7 @@
               <option value="PO">PO</option>
               <option value="QUOTE">견적서</option>
               <option value="INSPECTION">검수확인서</option>
+              <option value="HANDOVER">인수인계서</option>
               <option value="OTHER">기타</option>
             </select>
             <input
@@ -335,17 +336,28 @@ function isPoDoc(att: any) {
   return att.kind === 'PO' && /\.html?$/i.test(att.filename)
 }
 
+const KIND_LABELS: Record<string, string> = {
+  PO: 'PO',
+  QUOTE: '견적서',
+  INSPECTION: '검수확인서',
+  HANDOVER: '인수인계서',
+  OTHER: '기타',
+}
+
+const KIND_BADGES: Record<string, string> = {
+  PO: 'bg-blue-100 text-blue-700',
+  QUOTE: 'bg-emerald-100 text-emerald-700',
+  INSPECTION: 'bg-violet-100 text-violet-700',
+  HANDOVER: 'bg-amber-100 text-amber-700',
+  OTHER: 'bg-slate-100 text-slate-600',
+}
+
 function kindLabel(kind: string) {
-  return { PO: 'PO', QUOTE: '견적서', INSPECTION: '검수', OTHER: '기타' }[kind] || kind
+  return KIND_LABELS[kind] || kind
 }
 
 function kindBadge(kind: string) {
-  return {
-    PO: 'bg-blue-100 text-blue-700',
-    QUOTE: 'bg-emerald-100 text-emerald-700',
-    INSPECTION: 'bg-violet-100 text-violet-700',
-    OTHER: 'bg-slate-100 text-slate-600',
-  }[kind] || 'bg-slate-100 text-slate-600'
+  return KIND_BADGES[kind] || KIND_BADGES.OTHER
 }
 
 function formatSize(bytes: number) {
