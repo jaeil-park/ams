@@ -13,6 +13,40 @@ from app.schemas.common import ResponseEnvelope, MetaSchema
 
 router = APIRouter()
 
+# 대상 자원 이름을 붙여줄 resource_type — 이 값들의 resource_id 는 part_inventories.id 다.
+_PART_RESOURCE_TYPES = ("PART_QTY", "PART_USAGE")
+
+
+async def _attach_resource_labels(db: AsyncSession, approvals) -> None:
+    """
+    승인 목록에 대상 자원의 이름을 채운다.
+    'ID: 22'만으로는 어떤 파트인지 알 수 없으므로 모델명·파트넘버를 함께 보여준다.
+    건별 조회 대신 id를 모아 한 번에 읽는다.
+    """
+    part_ids = {
+        a.resource_id for a in approvals
+        if a.resource_type in _PART_RESOURCE_TYPES and a.resource_id
+    }
+    if not part_ids:
+        return
+
+    result = await db.execute(
+        select(models.PartInventory).where(models.PartInventory.id.in_(part_ids))
+    )
+    parts = {p.id: p for p in result.scalars().all()}
+
+    for approval in approvals:
+        if approval.resource_type not in _PART_RESOURCE_TYPES:
+            continue
+        part = parts.get(approval.resource_id)
+        if not part:
+            # 삭제된 파트의 과거 요청 — 이름을 지어내지 않고 그대로 알린다
+            approval.resource_label = "(삭제된 파트)"
+            continue
+        approval.resource_label = (
+            f"{part.model} ({part.part_number})" if part.part_number else part.model
+        )
+
 
 @router.get("", response_model=ResponseEnvelope[list[schemas.part.ApprovalOut]])
 async def list_approvals(
@@ -36,7 +70,8 @@ async def list_approvals(
     
     result = await db.execute(query)
     approvals = result.scalars().all()
-    
+    await _attach_resource_labels(db, approvals)
+
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     total_pages = (total + limit - 1) // limit

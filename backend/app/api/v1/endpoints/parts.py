@@ -100,6 +100,85 @@ async def list_part_categories(
     return ResponseEnvelope(data=categories)
 
 
+@router.get("/usage-history", response_model=ResponseEnvelope[list[schemas.part.PartUsageHistoryOut]])
+async def list_part_usage_history(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=1000),
+    search: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    전체 파트 출고 이력 조회 (납품이력의 파트 버전).
+    파트 모델명·파트넘버·고객사명을 함께 조회해, 어떤 파트가 어디로 나갔는지 한 줄로 읽히게 한다.
+    관리자 승인이 완료된 출고 건만 기록되어 있다.
+    """
+    skip = (page - 1) * limit
+
+    base_filters = []
+    if search:
+        base_filters.append(
+            models.PartInventory.model.ilike(f"%{search}%")
+            | models.PartInventory.part_number.ilike(f"%{search}%")
+            | models.PartUsage.po_number.ilike(f"%{search}%")
+            | models.Customer.name.ilike(f"%{search}%")
+        )
+    if date_from:
+        base_filters.append(models.PartUsage.used_date >= date_from)
+    if date_to:
+        base_filters.append(models.PartUsage.used_date <= date_to)
+
+    query = (
+        select(models.PartUsage, models.PartInventory, models.Customer.name)
+        .join(models.PartInventory, models.PartInventory.id == models.PartUsage.part_id)
+        # 고객사가 지워진 과거 이력도 목록에서 빠지지 않도록 outer join
+        .outerjoin(models.Customer, models.Customer.id == models.PartUsage.customer_id)
+    )
+    count_query = (
+        select(func.count(models.PartUsage.id))
+        .join(models.PartInventory, models.PartInventory.id == models.PartUsage.part_id)
+        .outerjoin(models.Customer, models.Customer.id == models.PartUsage.customer_id)
+    )
+    for f in base_filters:
+        query = query.where(f)
+        count_query = count_query.where(f)
+
+    query = query.order_by(
+        models.PartUsage.used_date.desc(), models.PartUsage.created_at.desc()
+    ).offset(skip).limit(limit)
+
+    result = await db.execute(query)
+    rows = [
+        schemas.part.PartUsageHistoryOut(
+            id=usage.id,
+            part_id=usage.part_id,
+            part_model=part.model,
+            part_number=part.part_number,
+            category=part.category,
+            used_date=usage.used_date,
+            qty=usage.qty,
+            customer_id=usage.customer_id,
+            customer_name=customer_name,
+            po_number=usage.po_number,
+            location=usage.location,
+            reason=usage.reason,
+            created_at=usage.created_at,
+        )
+        for usage, part, customer_name in result.all()
+    ]
+
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    total_pages = (total + limit - 1) // limit
+
+    return ResponseEnvelope(
+        data=rows,
+        meta=MetaSchema(total=total, page=page, limit=limit, total_pages=total_pages),
+    )
+
+
 @router.get("/{id}", response_model=ResponseEnvelope[schemas.part.PartInventoryOut])
 async def get_part(
     id: int,

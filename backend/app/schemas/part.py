@@ -72,6 +72,23 @@ class PartUsageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PartUsageHistoryOut(BaseModel):
+    """전체 파트 출고 이력 — 어떤 파트가 어디로 나갔는지 한 줄로 읽히도록 이름을 함께 싣는다."""
+    id: int
+    part_id: int
+    part_model: str | None = None
+    part_number: str | None = None
+    category: str | None = None
+    used_date: date
+    qty: int
+    customer_id: int | None = None
+    customer_name: str | None = None
+    po_number: str | None = None
+    location: str | None = None
+    reason: str | None = None
+    created_at: datetime
+
+
 # ─── Approval (Admin 승인요청 관련) ───────────────
 class ApprovalBase(BaseModel):
     resource_type: str = "PART_QTY"
@@ -91,5 +108,9 @@ class ApprovalOut(ApprovalBase):
     status: Literal["PENDING", "APPROVED", "REJECTED"]
     created_at: datetime
     updated_at: datetime
-    
+
+    # 대상 자원의 사람이 읽을 수 있는 이름 (예: 'Dell 300GB SAS HDD (400-AJOQ)').
+    # DB에 저장되지 않는 파생 값으로, 목록 조회 시 채워 넣는다.
+    resource_label: str | None = None
+
     model_config = ConfigDict(from_attributes=True)

@@ -80,7 +80,12 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-slate-700 max-w-xs">
-                <div class="font-semibold">자원 ID: {{ item.resource_id }}</div>
+                <div class="font-semibold break-words">
+                  {{ item.resource_label || `자원 ID: ${item.resource_id}` }}
+                </div>
+                <div v-if="item.resource_label" class="text-3xs font-mono text-slate-400">
+                  자원 ID: {{ item.resource_id }}
+                </div>
                 <div class="text-slate-500 mt-0.5" v-if="item.payload">
                   <span v-if="item.resource_type === 'PART_USAGE'">
                     출고 수량 <span class="font-bold text-blue-600">{{ item.payload.qty }}개</span>

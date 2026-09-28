@@ -8,7 +8,7 @@ from app.schemas.address import AddressCreate, AddressUpdate, AddressOut
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut
 from app.schemas.attachment import AttachmentOut, AttachmentUploadOut, PoMergeResult
 from app.schemas.inventory import ServerInventoryCreate, ServerInventoryUpdate, ServerInventoryBulkCreate, ServerInventoryOut
-from app.schemas.part import PartInventoryCreate, PartInventoryUpdate, PartInventoryOut, PartUsageCreate, PartUsageOut, ApprovalCreate, ApprovalOut
+from app.schemas.part import PartInventoryCreate, PartInventoryUpdate, PartInventoryOut, PartUsageCreate, PartUsageOut, PartUsageHistoryOut, ApprovalCreate, ApprovalOut
 from app.schemas.audit_log import AuditLogOut
 from app.schemas.system_log import SystemLogOut
 from app.schemas.user import UserCreate, UserUpdate, UserOut

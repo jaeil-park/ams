@@ -153,6 +153,7 @@
     <a href="#inventory">납품목록 (서버)</a>
     <a href="#parts">파트재고</a>
     <a href="#deliveries">납품이력</a>
+    <a href="#part-history">파트이력</a>
     <a href="#addresses">납품주소</a>
     <a href="#approvals">승인 관리</a>
     <a href="#users">사용자 관리 (Admin)</a>
@@ -164,7 +165,7 @@
   <main>
     <header class="page-head">
       <h1>AMS ERP 사용 설명서</h1>
-      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.4.1</strong></p>
+      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.5.0</strong></p>
     </header>
 
     <section id="intro">
@@ -377,6 +378,22 @@
       <p>상태가 <code>DELIVERED</code>로 변경된 서버 장비의 납품완료일자, 시리얼태그, 모델명을 시간순으로 조회할 수 있는 읽기 전용 화면입니다.</p>
     </section>
 
+    <section id="part-history">
+      <h2>파트이력</h2>
+      <p class="desc">부품(파트) 출고 및 사용 히스토리</p>
+      <p>납품이력이 <strong>서버</strong> 기준이라면, 파트이력은 <strong>부품</strong> 기준입니다. 지금까지 나간 모든 파트 출고 건을 한 화면에서 볼 수 있습니다.</p>
+      <table>
+        <tr><th>항목</th><th>내용</th></tr>
+        <tr><td>출고일자</td><td>파트가 사용/출고된 날짜</td></tr>
+        <tr><td>파트</td><td>모델명과 파트넘버. 클릭하면 파트재고에서 해당 파트를 조회합니다.</td></tr>
+        <tr><td>구분 · 수량</td><td>카테고리와 출고 수량</td></tr>
+        <tr><td>고객사 · PO/PR</td><td>어느 고객사의 어느 건으로 나갔는지</td></tr>
+        <tr><td>납품 위치 · 사유</td><td>출고 위치와 사유 (예: Fail DISK 교체 건)</td></tr>
+      </table>
+      <p>상단에서 <strong>파트명 · 파트넘버 · PO 번호 · 고객사</strong>로 검색할 수 있고, 기간으로도 좁혀 볼 수 있습니다.</p>
+      <div class="note">관리자 승인이 완료된 출고 건만 기록됩니다. 요청했는데 목록에 없다면 <strong>승인 관리</strong>에서 아직 대기 중인지 확인하세요.</div>
+    </section>
+
     <section id="addresses">
       <h2>납품주소</h2>
       <p class="desc">고객사별 납품 거점(배송지) 관리</p>
@@ -392,6 +409,7 @@
         <tr><td>PART_QTY</td><td>파트 재고 수량 보정 / 입고 추가</td><td>보유 수량이 요청한 값으로 변경</td></tr>
         <tr><td>PART_USAGE</td><td>파트 출고(사용) 등록</td><td>보유 수량 차감 + 사용 이력 기록</td></tr>
       </table>
+      <p>요청 내용에는 대상 파트의 <strong>모델명과 파트넘버</strong>가 표시되므로, 어떤 부품에 대한 요청인지 바로 알 수 있습니다. (삭제된 파트의 과거 요청은 <code>(삭제된 파트)</code>로 표시됩니다.)</p>
       <div class="note">상태 필터 기본값은 <strong>전체</strong>입니다. 대기 중인 건만 보려면 필터를 <code>대기 중</code>으로 바꾸세요. 출고 승인 시점에 재고를 다시 확인하므로, 승인 전에 재고가 부족해졌다면 승인이 거절됩니다.</div>
     </section>
 

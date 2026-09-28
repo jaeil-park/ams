@@ -26,13 +26,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import api from '@/utils/api'
 import AppBadge from '@/components/common/AppBadge.vue'
 import AppTable from '@/components/common/AppTable.vue'
 import type { ColumnDefinition } from '@/components/common/AppTable.vue'
 
 const deliveredServers = ref<any[]>([])
+const totalDelivered = ref(0)
 const loading = ref(false)
 
 const columns: ColumnDefinition[] = [
@@ -49,15 +50,15 @@ onMounted(() => {
 async function fetchDeliveredItems() {
   loading.value = true
   try {
-    const res = await api.get('/inventory?limit=100')
-    // DELIVERED 상태인 장비만 필터링 노출
-    deliveredServers.value = res.data.data.filter((item: any) => item.status === 'DELIVERED')
+    // 상태 필터는 서버에서 건다 — 가져온 뒤 브라우저에서 걸러내면
+    // 장비가 limit을 넘어섰을 때 오래된 납품 건이 조용히 누락된다.
+    const res = await api.get('/inventory', { params: { status: 'DELIVERED', limit: 1000 } })
+    deliveredServers.value = res.data.data
+    totalDelivered.value = res.data.meta?.total ?? res.data.data.length
   } catch (error) {
     console.error('Delivered items fetch failed:', error)
   } finally {
     loading.value = false
   }
 }
-
-const totalDelivered = computed(() => deliveredServers.value.length)
 </script>

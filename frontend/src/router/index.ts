@@ -46,6 +46,11 @@ const router = createRouter({
           component: () => import('@/pages/DeliveriesPage.vue')
         },
         {
+          path: 'part-history',
+          name: 'part-history',
+          component: () => import('@/pages/PartHistoryPage.vue')
+        },
+        {
           path: 'addresses',
           name: 'addresses',
           component: () => import('@/pages/AddressesPage.vue')
