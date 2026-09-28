@@ -22,6 +22,23 @@ logger = logging.getLogger(__name__)
 # 컨테이너에 마운트된 문서 루트. 마운트하지 않으면 기능 전체가 비활성화된다.
 DOCS_ROOT = Path(os.getenv("DOCS_ROOT", "/mnt/docs"))
 
+# 사용자 PC에서 탐색기로 열 때 쓰는 실제 네트워크 경로.
+# 컨테이너 내부 경로(DOCS_ROOT)와 달리, 화면에 보여주고 복사해 쓰라고 제공하는 값이다.
+# (브라우저는 http 페이지에서 file:// · UNC 링크 열기를 막으므로 '복사'가 유일한 방법이다)
+UNC_ROOT = os.getenv(
+    "DOCS_UNC_ROOT",
+    r"\\192.168.0.22\내부업무자료\Tech\02. 납품&유지보수_지원문서",
+)
+
+
+def to_unc(relative: str | None = None) -> str:
+    """문서 루트 기준 상대경로를 탐색기용 경로로 바꾼다."""
+    if not relative:
+        return UNC_ROOT
+    sep = "/" if "/" in UNC_ROOT and "\\" not in UNC_ROOT else "\\"
+    return UNC_ROOT.rstrip("\\/") + sep + relative.replace("/", sep)
+
+
 # 목록에서 감출 파일 — 윈도우/엑셀이 만드는 부산물
 _HIDDEN_EXACT = {"thumbs.db", "desktop.ini", ".ds_store"}
 _HIDDEN_PREFIX = ("~$", ".")

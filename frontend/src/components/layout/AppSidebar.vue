@@ -100,6 +100,31 @@
         </ul>
       </div>
 
+      <!-- 프로젝트 문서 폴더 바로가기 -->
+      <div v-if="docsUncRoot" class="pt-2">
+        <div v-if="uiStore.isSidebarOpen" class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-4">
+          Shortcut
+        </div>
+        <ul class="space-y-1">
+          <li>
+            <button
+              type="button"
+              class="w-full flex items-center gap-3 px-3 py-2 text-base rounded-md transition-colors font-medium hover:bg-slate-800 hover:text-white text-left"
+              title="납품문서 폴더 경로를 복사합니다 (탐색기 주소창에 붙여넣기)"
+              @click="copyDocsRoot"
+            >
+              <span class="shrink-0">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+              </span>
+              <span v-if="uiStore.isSidebarOpen" class="flex-1">프로젝트 폴더</span>
+              <svg v-if="uiStore.isSidebarOpen" class="h-3.5 w-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </li>
+        </ul>
+      </div>
+
       <!-- EXTERNAL LINKS -->
       <div class="pt-2">
         <div v-if="uiStore.isSidebarOpen" class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-4">
@@ -134,6 +159,7 @@ import { useRoute } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/utils/api'
+import { copyText } from '@/utils/clipboard'
 
 const route = useRoute()
 const uiStore = useUiStore()
@@ -153,7 +179,29 @@ async function fetchPendingCount() {
   } catch { /* 조용히 실패 */ }
 }
 
+// 납품문서 폴더 바로가기 — 브라우저가 UNC 링크를 열 수 없으므로 경로를 복사해 준다
+const docsUncRoot = ref('')
+
+async function fetchDocsRoot() {
+  try {
+    const res = await api.get('/projects/docs-root')
+    docsUncRoot.value = res.data.data?.unc_root || ''
+  } catch { /* 조용히 실패 — 바로가기만 숨겨진다 */ }
+}
+
+async function copyDocsRoot() {
+  const ok = await copyText(docsUncRoot.value)
+  uiStore.addToast(
+    ok
+      ? '폴더 경로를 복사했습니다. 탐색기(Win+E) 주소창에 붙여넣으세요.'
+      : `복사에 실패했습니다. 직접 입력해 주세요: ${docsUncRoot.value}`,
+    ok ? 'success' : 'warning',
+    ok ? 4000 : 10000,
+  )
+}
+
 onMounted(() => {
+  fetchDocsRoot()
   if (authStore.isAdmin) {
     fetchPendingCount()
     pollTimer = setInterval(fetchPendingCount, 30000)

@@ -312,6 +312,20 @@ async def get_completion_check(
 
 # ─── NAS 납품문서 폴더 (읽기 전용) ─────────────────────────────────────────
 
+@router.get("/docs-root", response_model=ResponseEnvelope[dict])
+async def get_docs_root(
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    사내 문서 공유폴더의 탐색기 경로를 돌려준다 (사이드바 바로가기용).
+    브라우저가 UNC 링크를 열 수 없으므로 화면에서 복사해 쓰도록 경로만 제공한다.
+    """
+    return ResponseEnvelope(data={
+        "enabled": nas_docs.is_enabled(),
+        "unc_root": nas_docs.UNC_ROOT,
+    })
+
+
 @router.get("/{id}/documents", response_model=ResponseEnvelope[dict])
 async def list_project_documents(
     id: int,
@@ -377,6 +391,8 @@ async def list_project_documents(
         "enabled": True,
         "root": root,
         "path": target,
+        # 탐색기에 붙여넣어 바로 열 수 있는 현재 폴더의 실제 경로
+        "unc_path": nas_docs.to_unc(target),
         "entries": entries,
         "message": None,
     })

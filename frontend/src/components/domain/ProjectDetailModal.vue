@@ -252,14 +252,24 @@
             <h4 class="font-bold text-slate-800 select-none">NAS 납품문서 폴더</h4>
             <p class="text-4xs text-slate-400">사내 문서 공유폴더의 실제 내용입니다 (읽기 전용)</p>
           </div>
-          <AppButton
-            variant="secondary"
-            class="text-3xs px-3 py-1.5"
-            :loading="docsLoading"
-            @click="fetchDocuments(null, true)"
-          >
-            폴더 다시 찾기
-          </AppButton>
+          <div class="flex items-center gap-2">
+            <AppButton
+              v-if="docsUncPath"
+              variant="secondary"
+              class="text-3xs px-3 py-1.5"
+              @click="copyDocsPath"
+            >
+              탐색기 경로 복사
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              class="text-3xs px-3 py-1.5"
+              :loading="docsLoading"
+              @click="fetchDocuments(null, true)"
+            >
+              폴더 다시 찾기
+            </AppButton>
+          </div>
         </div>
 
         <div v-if="docsMessage" class="text-slate-500 text-center py-5 bg-slate-50 rounded border border-dashed border-slate-200">
@@ -334,6 +344,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import api from '@/utils/api'
+import { copyText } from '@/utils/clipboard'
 import { useUiStore } from '@/stores/ui'
 import AppBadge from '@/components/common/AppBadge.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -422,6 +433,18 @@ const docsRoot = ref<string | null>(null)
 const docsSubPath = ref<string>('')
 const docsMessage = ref<string | null>(null)
 const docsLoading = ref(false)
+const docsUncPath = ref('')
+
+async function copyDocsPath() {
+  const ok = await copyText(docsUncPath.value)
+  uiStore.addToast(
+    ok
+      ? '폴더 경로를 복사했습니다. 탐색기(Win+E) 주소창에 붙여넣으세요.'
+      : `복사에 실패했습니다. 직접 입력해 주세요: ${docsUncPath.value}`,
+    ok ? 'success' : 'warning',
+    ok ? 4000 : 10000,
+  )
+}
 
 onMounted(() => {
   fetchProject()
@@ -440,6 +463,7 @@ async function fetchDocuments(subPath: string | null = null, relocate = false) {
     const data = res.data.data
     docsMessage.value = data.message
     docsRoot.value = data.root
+    docsUncPath.value = data.unc_path || ''
     docEntries.value = data.entries || []
     docsSubPath.value = subPath || ''
   } catch (error: any) {
