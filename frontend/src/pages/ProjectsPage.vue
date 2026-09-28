@@ -173,6 +173,16 @@
       </button>
     </div>
 
+    <!-- 완료 처리 체크리스트 -->
+    <ProjectCompletionModal
+      v-if="isCompletionOpen && completionProject"
+      :key="`complete-${completionProject.id}`"
+      :is-open="isCompletionOpen"
+      :project="completionProject"
+      @close="isCompletionOpen = false"
+      @completed="fetchProjects"
+    />
+
     <!-- 프로젝트 상세 / 첨부 PO 문서 -->
     <ProjectDetailModal
       v-if="isDetailOpen && detailProjectId !== null"
@@ -358,6 +368,7 @@ import AppTabs from '@/components/common/AppTabs.vue'
 import type { TabDefinition } from '@/components/common/AppTabs.vue'
 import ProjectItemsPanel from '@/components/domain/ProjectItemsPanel.vue'
 import ProjectDetailModal from '@/components/domain/ProjectDetailModal.vue'
+import ProjectCompletionModal from '@/components/domain/ProjectCompletionModal.vue'
 
 const route = useRoute()
 const uiStore = useUiStore()
@@ -393,6 +404,9 @@ const STATUS_OPTIONS = [
   { value: 'COMPLETED', label: '완료', dotClass: 'bg-emerald-500' },
 ]
 
+const isCompletionOpen = ref(false)
+const completionProject = ref<any>(null)
+
 const statusMenuProject = ref<any>(null)
 const statusMenuPos = ref({ top: 0, left: 0 })
 const statusSavingId = ref<number | null>(null)
@@ -422,6 +436,13 @@ async function changeStatus(proj: any, newStatus: string) {
 
   const label = STATUS_OPTIONS.find(o => o.value === newStatus)?.label || newStatus
   const isResync = proj.status === newStatus
+
+  // 완료 처리는 체크리스트 확인을 거친다 (이미 완료된 건의 재동기화는 제외)
+  if (newStatus === 'COMPLETED' && !isResync) {
+    completionProject.value = proj
+    isCompletionOpen.value = true
+    return
+  }
 
   // 이미 같은 상태여도 다시 선택할 수 있게 둔다 — 완료 후에 추가된 서버를 맞추는 용도.
   if (isResync && newStatus !== 'COMPLETED' && newStatus !== 'IN_PROGRESS') return

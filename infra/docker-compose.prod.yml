@@ -46,6 +46,13 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://192.168.0.22}
       DELL_API_CLIENT_ID: ${DELL_API_CLIENT_ID:-}
       DELL_API_CLIENT_SECRET: ${DELL_API_CLIENT_SECRET:-}
+      # NAS 납품문서 폴더의 컨테이너 내부 경로 (아래 volumes 와 짝을 이룸)
+      DOCS_ROOT: ${DOCS_ROOT:-/mnt/docs}
+    volumes:
+      # 사내 납품문서 공유폴더 — 반드시 :ro (읽기 전용) 로 마운트한다.
+      # AMS는 이 폴더를 조회/다운로드만 하며, 원본을 수정하거나 지우지 않는다.
+      # 경로가 다르면 DOCS_HOST_PATH 를 .env.prod 에서 바꾼다.
+      - ${DOCS_HOST_PATH:-/volume1/내부업무자료/Tech/02. 납품&유지보수_지원문서}:/mnt/docs:ro
     depends_on:
       db:
         condition: service_healthy

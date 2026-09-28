@@ -2,8 +2,8 @@
 app/models/project.py — Project DB 모델
 """
 
-from datetime import date
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String
+from datetime import date, datetime
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -32,6 +32,14 @@ class Project(Base, TimestampMixin):
     po_currency: Mapped[str | None] = mapped_column(String(10), nullable=True)
     po_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     po_variance_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # NAS 납품문서 폴더의 상대경로 (문서 루트 기준). PO 번호로 한 번 찾으면 여기 기억해 둔다.
+    nas_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    # 완료 처리 체크리스트 — 수기 확인 항목의 체크 상태 {"FIELD_INSTALL": true, ...}
+    completion_checklist: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

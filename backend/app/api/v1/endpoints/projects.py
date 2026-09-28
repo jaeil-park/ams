@@ -2,7 +2,10 @@
 app/api/v1/endpoints/projects.py — 프로젝트 API
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import datetime
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Literal
@@ -10,7 +13,13 @@ from typing import Literal
 from app import crud, models, schemas
 from app.core.deps import get_db, get_current_user
 from app.schemas.common import ResponseEnvelope, MetaSchema
+from app.services import nas_docs
 from app.services.audit import log_action
+from app.services.completion_check import (
+    blocking_reasons,
+    evaluate_manual,
+    run_auto_checks,
+)
 
 router = APIRouter()
 
@@ -234,17 +243,27 @@ async def update_project(
     # 완료 후에 추가된 서버가 영영 동기화되지 않는다 (멱등하게 맞추는 것이 안전하다).
     sync_target_status = obj_in.status if obj_in.status is not None else None
 
-    # PO 문서는 필수 첨부다 — 완료 처리 시점에는 반드시 있어야 한다.
-    # (등록 시점에는 PO가 아직 도착하지 않았을 수 있으므로 그때는 막지 않는다)
-    if sync_target_status == "COMPLETED" and project.status != "COMPLETED":
-        if not await _project_ids_with_po(db, [id]):
+    # 완료 처리는 체크리스트를 모두 통과해야 한다.
+    # (등록·진행중 단계에서는 막지 않는다. 이미 완료된 건의 재저장도 다시 검사하지 않는다)
+    is_completing = sync_target_status == "COMPLETED" and project.status != "COMPLETED"
+    if is_completing:
+        checklist = obj_in.completion_checklist if obj_in.completion_checklist is not None else project.completion_checklist
+        auto_checks = await run_auto_checks(db, project)
+        manual_items = evaluate_manual(checklist)
+        reasons = blocking_reasons(auto_checks, manual_items)
+        if reasons:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="PO 문서가 첨부되지 않아 완료 처리할 수 없습니다. "
-                       "PO 번호를 클릭해 상세 화면에서 PO 문서를 먼저 첨부해 주세요.",
+                detail="완료 처리 조건을 충족하지 않았습니다: " + ", ".join(reasons),
             )
 
     updated = await crud.project.update(db, db_obj=project, obj_in=obj_in)
+
+    if is_completing:
+        updated.completed_at = datetime.now()
+        updated.completed_by = current_user.id
+        db.add(updated)
+        await db.commit()
 
     # 프로젝트 완료 처리 시 소속 서버도 납품완료로 연동 (진행중 → 납품예정)
     synced_count = 0
@@ -268,6 +287,134 @@ async def update_project(
         after=after_state,
     )
     return ResponseEnvelope(data=updated)
+
+
+@router.get("/{id}/completion-check", response_model=ResponseEnvelope[dict])
+async def get_completion_check(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """완료 처리 체크리스트 조회 — 자동 검사 결과와 수기 확인 항목의 현재 상태."""
+    project = await crud.project.get(db, id=id)
+    if not project:
+        raise HTTPException(status_code=404, detail="해당 프로젝트를 찾을 수 없습니다.")
+
+    auto_checks = await run_auto_checks(db, project)
+    manual_items = evaluate_manual(project.completion_checklist)
+    return ResponseEnvelope(data={
+        "auto_checks": auto_checks,
+        "manual_items": manual_items,
+        "blocking_reasons": blocking_reasons(auto_checks, manual_items),
+        "completed_at": project.completed_at.isoformat() if project.completed_at else None,
+    })
+
+
+# ─── NAS 납품문서 폴더 (읽기 전용) ─────────────────────────────────────────
+
+@router.get("/{id}/documents", response_model=ResponseEnvelope[dict])
+async def list_project_documents(
+    id: int,
+    path: str | None = Query(None, description="프로젝트 폴더 기준 하위 경로"),
+    relocate: bool = Query(False, description="true면 PO 번호로 폴더를 다시 찾는다"),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    프로젝트의 NAS 납품문서 폴더 내용을 조회한다 (읽기 전용).
+    폴더 위치를 모르면 PO 번호로 찾아서 프로젝트에 기억해 둔다.
+    """
+    project = await crud.project.get(db, id=id)
+    if not project:
+        raise HTTPException(status_code=404, detail="해당 프로젝트를 찾을 수 없습니다.")
+
+    if not nas_docs.is_enabled():
+        return ResponseEnvelope(data={
+            "enabled": False,
+            "root": None,
+            "path": None,
+            "entries": [],
+            "message": "NAS 문서 폴더가 연결되어 있지 않습니다.",
+        })
+
+    if relocate or not project.nas_path:
+        # 자동 탐색은 최근 2개 연도만 (못 찾을 때 전 연도를 훑으면 매번 수 초가 걸린다).
+        # 오래된 건은 사용자가 '다시 찾기'를 눌러 전체를 훑는다.
+        found = nas_docs.find_project_folder(
+            project.po_number, max_years=None if relocate else 2
+        )
+        if found and found != project.nas_path:
+            project.nas_path = found
+            db.add(project)
+            await db.commit()
+        elif not found:
+            return ResponseEnvelope(data={
+                "enabled": True,
+                "root": None,
+                "path": None,
+                "entries": [],
+                "message": f"PO 번호 '{project.po_number}'가 들어간 문서 폴더를 찾지 못했습니다.",
+            })
+
+    root = project.nas_path
+    try:
+        # 하위 경로는 항상 이 프로젝트 폴더 안쪽으로만 허용한다.
+        # (문서 루트 하위인지만 보면 '..' 로 다른 고객사 폴더를 훑을 수 있다)
+        target = nas_docs.resolve_within(root, path)
+        entries = nas_docs.list_folder(target)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="허용되지 않은 경로입니다.")
+    except FileNotFoundError:
+        return ResponseEnvelope(data={
+            "enabled": True,
+            "root": root,
+            "path": None,
+            "entries": [],
+            "message": "기억해 둔 폴더가 더 이상 존재하지 않습니다. 다시 찾기를 눌러주세요.",
+        })
+
+    return ResponseEnvelope(data={
+        "enabled": True,
+        "root": root,
+        "path": target,
+        "entries": entries,
+        "message": None,
+    })
+
+
+@router.get("/{id}/documents/download")
+async def download_project_document(
+    id: int,
+    path: str = Query(..., description="문서 루트 기준 파일 경로"),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """NAS 문서 폴더의 파일을 내려받는다 (프로젝트 폴더 바깥은 접근 불가)."""
+    project = await crud.project.get(db, id=id)
+    if not project:
+        raise HTTPException(status_code=404, detail="해당 프로젝트를 찾을 수 없습니다.")
+    if not nas_docs.is_enabled() or not project.nas_path:
+        raise HTTPException(status_code=404, detail="연결된 문서 폴더가 없습니다.")
+
+    # 이 프로젝트의 폴더 안쪽 파일만 허용한다
+    if not (path == project.nas_path or path.startswith(project.nas_path + "/")):
+        raise HTTPException(status_code=403, detail="이 프로젝트의 문서가 아닙니다.")
+
+    try:
+        content, filename = nas_docs.read_file(path)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="허용되지 않은 경로입니다.")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+
+    return Response(
+        content=content,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.delete("/{id}", response_model=ResponseEnvelope[schemas.project.ProjectOut])

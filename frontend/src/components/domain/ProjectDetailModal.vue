@@ -245,6 +245,81 @@
         </div>
       </div>
 
+      <!-- NAS 납품문서 폴더 (읽기 전용) -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <h4 class="font-bold text-slate-800 select-none">NAS 납품문서 폴더</h4>
+            <p class="text-4xs text-slate-400">사내 문서 공유폴더의 실제 내용입니다 (읽기 전용)</p>
+          </div>
+          <AppButton
+            variant="secondary"
+            class="text-3xs px-3 py-1.5"
+            :loading="docsLoading"
+            @click="fetchDocuments(null, true)"
+          >
+            폴더 다시 찾기
+          </AppButton>
+        </div>
+
+        <div v-if="docsMessage" class="text-slate-500 text-center py-5 bg-slate-50 rounded border border-dashed border-slate-200">
+          {{ docsMessage }}
+        </div>
+
+        <template v-else>
+          <!-- 경로 -->
+          <div class="flex items-center gap-1 mb-1.5 text-4xs text-slate-400 font-mono break-all">
+            <button
+              v-if="docsSubPath"
+              type="button"
+              class="px-1.5 py-0.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-100 shrink-0 font-sans font-semibold"
+              @click="navigateUp"
+            >
+              ↑ 상위
+            </button>
+            <span>{{ docsRoot }}{{ docsSubPath ? '/' + docsSubPath : '' }}</span>
+          </div>
+
+          <div v-if="docsLoading" class="text-slate-400 text-center py-5">불러오는 중...</div>
+          <div v-else-if="docEntries.length === 0" class="text-slate-400 text-center py-5 bg-slate-50 rounded border border-dashed border-slate-200">
+            이 폴더는 비어 있습니다.
+          </div>
+          <div v-else class="border border-slate-200 rounded divide-y divide-slate-100 max-h-64 overflow-y-auto">
+            <div
+              v-for="entry in docEntries"
+              :key="entry.path"
+              class="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50"
+            >
+              <svg v-if="entry.is_dir" class="h-4 w-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+              </svg>
+              <svg v-else class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <button
+                v-if="entry.is_dir"
+                type="button"
+                class="flex-1 text-left font-semibold text-slate-700 hover:text-blue-600 truncate"
+                :title="entry.name"
+                @click="enterFolder(entry)"
+              >
+                {{ entry.name }}
+              </button>
+              <span v-else class="flex-1 text-slate-600 truncate" :title="entry.name">{{ entry.name }}</span>
+              <span class="text-slate-400 shrink-0 tabular-nums">{{ entry.is_dir ? '' : formatSize(entry.size) }}</span>
+              <button
+                v-if="!entry.is_dir"
+                type="button"
+                class="px-2 py-0.5 text-3xs font-semibold text-blue-600 border border-blue-200 rounded hover:bg-blue-50 shrink-0"
+                @click="downloadNasFile(entry)"
+              >
+                다운로드
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+
       <!-- 4. 소속 서버/파트 -->
       <div>
         <h4 class="font-bold text-slate-800 mb-2 select-none">이 프로젝트의 서버 / 파트</h4>
@@ -341,10 +416,71 @@ const parsedRows = computed(() => {
     }))
 })
 
+// ─── NAS 납품문서 폴더 ───────────────────────────────────────────────────
+const docEntries = ref<any[]>([])
+const docsRoot = ref<string | null>(null)
+const docsSubPath = ref<string>('')
+const docsMessage = ref<string | null>(null)
+const docsLoading = ref(false)
+
 onMounted(() => {
   fetchProject()
   fetchAttachments()
+  fetchDocuments()
 })
+
+async function fetchDocuments(subPath: string | null = null, relocate = false) {
+  docsLoading.value = true
+  try {
+    const params: any = {}
+    if (subPath) params.path = subPath
+    if (relocate) params.relocate = true
+
+    const res = await api.get(`/projects/${props.projectId}/documents`, { params })
+    const data = res.data.data
+    docsMessage.value = data.message
+    docsRoot.value = data.root
+    docEntries.value = data.entries || []
+    docsSubPath.value = subPath || ''
+  } catch (error: any) {
+    console.error(error)
+    docsMessage.value = error.response?.data?.detail || '문서 폴더를 읽지 못했습니다.'
+    docEntries.value = []
+  } finally {
+    docsLoading.value = false
+  }
+}
+
+function enterFolder(entry: any) {
+  // 서버가 돌려준 경로는 문서 루트 기준이므로, 프로젝트 폴더 기준으로 바꿔 넘긴다
+  const root = docsRoot.value || ''
+  const relative = entry.path.startsWith(root + '/') ? entry.path.slice(root.length + 1) : entry.name
+  fetchDocuments(relative)
+}
+
+function navigateUp() {
+  const parts = docsSubPath.value.split('/').filter(Boolean)
+  parts.pop()
+  fetchDocuments(parts.length ? parts.join('/') : null)
+}
+
+async function downloadNasFile(entry: any) {
+  try {
+    const res = await api.get(`/projects/${props.projectId}/documents/download`, {
+      params: { path: entry.path },
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(res.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = entry.name
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error: any) {
+    console.error(error)
+    uiStore.addToast(error.response?.data?.detail || '다운로드 실패', 'error')
+  }
+}
 
 async function fetchProject() {
   try {

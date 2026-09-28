@@ -39,6 +39,8 @@ class ProjectUpdate(BaseModel):
     status: Literal["WAITING", "IN_PROGRESS", "COMPLETED"] | None = None
     location: str | None = Field(None, max_length=500)
     scheduled_date: date | None = None
+    # 완료 처리 시 함께 전달하는 수기 확인 항목 체크 상태
+    completion_checklist: dict | None = None
 
     po_amount: int | None = None
     po_currency: str | None = Field(None, max_length=10)
@@ -50,6 +52,11 @@ class ProjectOut(ProjectBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+    nas_path: str | None = None
+    completion_checklist: dict | None = None
+    completed_at: datetime | None = None
+    completed_by: int | None = None
 
     # PO 문서 첨부 여부 (필수 문서 누락을 목록에서 바로 알아보기 위한 파생 값)
     has_po: bool = False
