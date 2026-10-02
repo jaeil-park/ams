@@ -108,8 +108,8 @@
             <tr v-for="r in rows" :key="r.id" class="hover:bg-slate-50">
               <td class="px-4 py-2 font-mono text-slate-700">{{ r.serial_tag }}</td>
               <td class="px-4 py-2 text-xs">{{ r.vendor }}</td>
-              <td class="px-4 py-2">
-                <span class="px-2 py-0.5 rounded-full text-3xs font-bold" :class="STATUS_CLASS[r.status]">
+              <td class="px-4 py-2 whitespace-nowrap">
+                <span class="px-2 py-0.5 rounded-full text-3xs font-bold whitespace-nowrap" :class="STATUS_CLASS[r.status]">
                   {{ STATUS_LABEL[r.status] }}
                 </span>
               </td>
@@ -131,12 +131,12 @@
                 <span v-else-if="r.inventory_id" class="text-slate-400">AMS 등록 서버</span>
                 <span v-else class="text-slate-300">미등록</span>
               </td>
-              <td class="px-4 py-2 text-xs text-slate-500">
-                <span>{{ r.error || '' }}</span>
+              <td class="px-4 py-2 text-xs text-slate-500 max-w-sm">
+                <span class="block truncate" :title="r.error || ''">{{ r.error || '' }}</span>
                 <button
                   v-if="r.status === 'ERROR' || r.status === 'NOT_FOUND'"
                   type="button"
-                  class="ml-2 text-blue-600 hover:underline"
+                  class="text-blue-600 hover:underline"
                   @click="retry(r.id)"
                 >다시 조회</button>
               </td>

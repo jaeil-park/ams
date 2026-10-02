@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 WARRANTY_URL = "https://support.hpe.com/connect/s/warrantycheck"
 _RESULT_MARK = re.compile(r"제품 번호|Product Number", re.I)
+# 보증 확인의 '일련 번호' 입력칸 (type=text). 상단 헤더 검색창도 slds-input 이지만 type=search 라 제외한다.
+SERIAL_INPUT = "input.slds-input[type='text']:visible"
 _CHALLENGE = re.compile(r"captcha|recaptcha|hcaptcha|verify it'?s you|인증 코드|verification code|okta verify|본인 확인", re.I)
 
 
@@ -100,7 +102,7 @@ class HpePortalClient:
                 if "auth.hpe.com" in url or await page.locator("#email-sign-in").count():
                     return "LOGIN"
                 if ("warrantycheck" in url and "LoginFlow" not in url
-                        and await page.locator("input.slds-input:visible").count()):
+                        and await page.locator(SERIAL_INPUT).count()):
                     return "READY"
             except Exception:  # noqa: BLE001 — 리다이렉트 중 페이지 컨텍스트가 바뀌면 다시 확인
                 pass
@@ -157,7 +159,7 @@ class HpePortalClient:
         page = await self._ctx.new_page()
         try:
             await self._open_check_page(page)
-            box = page.locator("input.slds-input").first
+            box = page.locator(SERIAL_INPUT).first
             await box.fill(serial)
             await page.get_by_role("button", name=re.compile(r"제출|Submit")).first.click()
             try:
