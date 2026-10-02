@@ -36,6 +36,7 @@ def _warranty_to_dict(w: models.Warranty, inventory_id: int, serial_tag: str) ->
         "start_date": w.start_date.isoformat(),
         "end_date": w.end_date.isoformat(),
         "source": w.source,
+        "service_level": w.service_level,
         "last_synced": w.last_synced.isoformat() if w.last_synced else None,
     }
 

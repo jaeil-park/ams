@@ -331,3 +331,18 @@
 - [ ] 백엔드 테스트 (pytest + httpx TestClient)
 - [ ] CI/CD 파이프라인 (GitHub Actions)
 - [ ] 카카오/네이버맵 주소 검색 연동
+
+---
+
+## Phase 6 — 제조사 워런티 자동 조회 (2026-10-02)
+
+- [x] `warranty_parse.py` — 제조사 판별 / 날짜 해석 / HPE 결과(Initial Setup 제외) / Dell API 결과 해석 + 단위 테스트 11건 (✅ 2026-10-02)
+- [x] `dell_warranty.py` — Mock 제거, TechDirect OAuth2 + asset-entitlements 실제 연동 (키 발급 후 실응답 검증 필요) (✅ 2026-10-02)
+- [x] `warranty_lookups` 대기열 + `warranty_worker_statuses` 테이블, `warranties.service_level/detail` 추가 (alembic `a1b2c3d4e5f7`) (✅ 2026-10-02)
+- [x] `/api/v1/warranty-lookups` — 조회 요청·결과·상태·Dell 확장 프로그램 대기/결과·재시도 (✅ 2026-10-02)
+- [x] `warranty-worker` 컨테이너 (Playwright, HPE 포털 자동 로그인·조회, 캡차/MFA 시 LOGIN_REQUIRED) + GHCR 빌드 (✅ 2026-10-02)
+- [x] 프론트: '워런티 조회' 메뉴, 서버 상세 '제조사 조회', 프로젝트 '서버 워런티 일괄 조회', 동일사양 입고 자동 조회 옵션 (✅ 2026-10-02)
+- [x] Dell 조회 브라우저 확장 프로그램 (`tools/dell-warranty-extension`) (✅ 2026-10-02)
+- [ ] 🚫 Dell TechDirect API 키 발급 후 실응답 검증 (대표님 서명 대기 중)
+- [ ] HPE 조회 전용 계정으로 `worker.try_hpe_lookup` 실조회 확인 후 운영 배포
+- [ ] 운영 배포: VERSION 올림 → main 푸시 → Portainer 재배포(warranty-worker 포함) → `alembic upgrade head`

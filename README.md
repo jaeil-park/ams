@@ -22,6 +22,7 @@
 | 고객사 관리 | 고객사 기본정보 + 담당자(복수) 등록/관리 |
 | 프로젝트 관리 | PO 단위 납품 프로젝트, 고객사 담당자 선택 시 연락처/이메일 자동 입력 |
 | 납품목록 (서버) | 서버 단건/동일사양 대량 복사 입고, CPU·MEM·DISK 1·2 상세 사양, 비고 |
+| 워런티 조회 | Dell·HPE 시리얼 붙여넣기 → 제조사 워런티 자동 조회 / 서버 상세 '제조사 조회' / 프로젝트 '서버 워런티 일괄 조회' / 동일사양 입고 시 자동 조회 |
 | 파트재고 | 부품 재고 및 프로젝트 할당, 수량 변경은 승인 관리를 통해 반영 |
 | 납품이력 / 납품주소 | 납품 완료 이력 조회, 고객사별 배송 거점 관리 |
 | 승인 관리 | 수량 변경 등 민감 변경 요청의 ADMIN 승인/반려 |
@@ -101,6 +102,20 @@ npm run dev
 
 ---
 
+## 제조사 워런티 자동 조회
+
+| 제조사 | 조회 방법 | 설정 |
+|---|---|---|
+| Dell | TechDirect Warranty API (백엔드에서 즉시 조회) | `DELL_API_CLIENT_ID` / `DELL_API_CLIENT_SECRET` |
+| Dell (API 키 발급 전) | 요청이 '확장 프로그램 대기'로 쌓이고, [Dell 조회 확장 프로그램](tools/dell-warranty-extension/README.md)이 Dell 사이트에서 조회해 저장 | 설정 없음 |
+| HPE | `warranty-worker` 컨테이너가 HPE 지원 포털에 조회 전용 계정으로 로그인해 조회 (Playwright) | `HPE_USERNAME` / `HPE_PASSWORD` / `WARRANTY_DATA_PATH` |
+
+- 요청은 `warranty_lookups` 대기열에 시리얼 단위로 쌓이고, AMS에 등록된 서버는 결과가 서버 워런티(`warranties`)에 자동 저장됩니다(감사 로그 기록).
+- HPE 결과의 'Initial Setup(초기 설정 지원)' 항목은 하드웨어 워런티가 아니므로 제외하고 종료일을 계산합니다.
+- HPE 로그인에 캡차·추가 인증(MFA)이 걸리면 자동으로 풀지 않고 '워런티 조회' 화면에 **HPE 재로그인 필요**를 표시합니다. 조회 전용 계정은 MFA를 끈 계정을 쓰세요.
+- 배포 전 HPE 조회 시험: `cd backend` → 환경변수 `HPE_USERNAME`/`HPE_PASSWORD` 설정 → `python -m worker.try_hpe_lookup <시리얼>`
+- 해석 로직 단위 테스트: `cd backend && python -m pytest tests -q`
+
 ## 디렉토리 구조
 
 ```
@@ -110,6 +125,8 @@ ams/
 │   └── src/
 ├── backend/                  # FastAPI + SQLAlchemy
 │   └── alembic/versions/     # DB 마이그레이션
+├── backend/worker/           # warranty-worker (HPE 포털 자동 조회)
+├── tools/dell-warranty-extension/  # Dell 워런티 조회 브라우저 확장 프로그램
 ├── infra/                    # Docker Compose, Nginx 설정
 ├── .github/workflows/        # CI (GHCR 빌드/배포)
 ├── VERSION                   # 릴리즈 버전 단일 소스

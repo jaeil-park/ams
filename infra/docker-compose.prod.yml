@@ -65,6 +65,29 @@ services:
     networks:
       - ams-net
 
+  # ─── 워런티 자동 조회 작업자 (HPE 포털, Playwright) ──────────────────────────
+  # warranty_lookups 대기열의 HPE 건을 조회해 결과를 DB 에 기록한다. 외부로 여는 포트 없음.
+  warranty-worker:
+    image: ghcr.io/${GHCR_USERNAME:-jaeil-park}/${GHCR_REPO:-ams}-warranty-worker:${TAG:-latest}
+    container_name: ams-warranty-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "false"
+      HPE_USERNAME: ${HPE_USERNAME:-}
+      HPE_PASSWORD: ${HPE_PASSWORD:-}
+      HPE_STATE_PATH: /data/hpe_state.json
+      TZ: Asia/Seoul
+    volumes:
+      - ${WARRANTY_DATA_PATH:-/volume1/docker/portainer/ams/warranty}:/data
+    shm_size: "1gb"   # Chromium 안정 실행용
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ams-net
+
   # ─── Vue3 Frontend (nginx + 정적파일 + API 프록시) ────────────────────────────
   frontend:
     image: ghcr.io/${GHCR_USERNAME:-jaeil-park}/${GHCR_REPO:-ams}-frontend:${TAG:-latest}

@@ -344,6 +344,10 @@
             placeholder="시리얼 번호들을 엔터(줄바꿈) 또는 쉼표(,)로 분리해서 입력해 주세요. 입력한 개수만큼 장비 자산이 개별 등록됩니다."
             class="block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono text-xs"
           ></textarea>
+          <label class="mt-2 flex items-center gap-2 text-slate-600">
+            <input v-model="bulkLookupWarranty" type="checkbox" class="rounded border-slate-300" />
+            입고 후 Dell·HPE 제조사 워런티 자동 조회 (조회되면 서버 워런티에 자동 저장)
+          </label>
         </div>
 
         <h4 class="font-bold text-slate-800 pb-1 border-b border-slate-100 pt-3">기본 입고 장비 공동 사양</h4>
@@ -607,6 +611,7 @@ const extraBulkDiskSlots = computed(() => {
   return slots
 })
 const bulkSerialsText = ref('')
+const bulkLookupWarranty = ref(true)
 const bulkForm = ref<any>({
   model: '',
   vendor: 'DELL',
@@ -877,8 +882,16 @@ async function submitBulkForm() {
       }
     }
 
-    await api.post('/inventory/bulk', payload)
+    const bulkRes = await api.post('/inventory/bulk', payload)
     uiStore.addToast(`성공적으로 ${tags.length}대의 서버 장비 입고 완료!`, 'success')
+    if (bulkLookupWarranty.value) {
+      const ids = (bulkRes.data?.data ?? []).map((s: { id: number }) => s.id)
+      if (ids.length) {
+        api.post('/warranty-lookups/inventory', { inventory_ids: ids, apply_to_inventory: true })
+          .then(() => uiStore.addToast(`${ids.length}대 워런티 자동 조회를 요청했습니다. 진행 상황은 '워런티 조회' 메뉴에서 확인하세요.`, 'success'))
+          .catch(() => uiStore.addToast('워런티 자동 조회 요청에 실패했습니다.', 'warning'))
+      }
+    }
     closeBulkModal()
     fetchInventory()
   } catch (error: any) {

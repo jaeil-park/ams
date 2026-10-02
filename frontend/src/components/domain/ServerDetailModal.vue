@@ -73,6 +73,15 @@
           </div>
           <div class="flex items-end gap-2">
             <AppButton
+              variant="secondary"
+              class="text-3xs px-3 py-1.5 shrink-0"
+              :loading="lookupSubmitting || !!lookupRunning"
+              title="Dell·HPE 제조사 사이트에서 워런티를 조회해 자동으로 저장합니다"
+              @click="lookupFromVendor"
+            >
+              제조사 조회
+            </AppButton>
+            <AppButton
               variant="primary"
               class="text-3xs px-4 py-1.5 shrink-0 w-full"
               :loading="warrantyLoading"
@@ -94,6 +103,10 @@
             </AppButton>
           </div>
         </div>
+        <p v-if="lookupMessage || warrantyInfo?.service_level" class="text-3xs text-slate-500">
+          <span v-if="warrantyInfo?.service_level">출처 {{ warrantyInfo.source }} · {{ warrantyInfo.service_level }}</span>
+          <span v-if="lookupMessage" class="ml-2 font-semibold text-blue-600">{{ lookupMessage }}</span>
+        </p>
       </div>
 
 
@@ -205,12 +218,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import api from '@/utils/api'
 import { useUiStore } from '@/stores/ui'
 import AppBadge from '@/components/common/AppBadge.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AppModal from '@/components/common/AppModal.vue'
+import { useWarrantyLookup } from '@/composables/useWarrantyLookup'
 
 interface Props {
   isOpen: boolean
@@ -294,6 +308,46 @@ async function saveWarranty() {
     warrantyLoading.value = false
   }
 }
+
+// ─── 제조사 워런티 자동 조회 (결과는 서버 워런티에 자동 저장) ────────────────
+const {
+  rows: lookupRows,
+  submitting: lookupSubmitting,
+  lookupInventory,
+} = useWarrantyLookup()
+const lookupMessage = ref('')
+const lookupRunning = computed(() => {
+  const r = lookupRows.value[0]
+  return r && (r.status === 'PENDING' || r.status === 'RUNNING')
+})
+
+async function lookupFromVendor() {
+  lookupMessage.value = '제조사 조회 요청 중...'
+  try {
+    await lookupInventory({ inventoryIds: [props.serverId], apply: true })
+  } catch (err: any) {
+    lookupMessage.value = ''
+    uiStore.addToast(err?.response?.data?.detail || '제조사 조회 요청 실패', 'error')
+  }
+}
+
+watch(lookupRows, async (rows) => {
+  const r = rows[0]
+  if (!r) return
+  if (r.status === 'PENDING' || r.status === 'RUNNING') {
+    lookupMessage.value = r.vendor === 'HPE' ? 'HPE 포털 조회 중 (10~20초)...' : '조회 중...'
+  } else if (r.status === 'WAITING_EXTENSION') {
+    lookupMessage.value = 'Dell 확장 프로그램 처리 대기 중 — 처리되면 자동 저장됩니다.'
+  } else if (r.status === 'DONE') {
+    lookupMessage.value = ''
+    await fetchWarrantyRecord()
+    emit('updated')
+    uiStore.addToast(r.applied ? `제조사 워런티를 저장했습니다 (${r.start_date} ~ ${r.end_date}).` : '조회는 됐지만 저장하지 못했습니다.', r.applied ? 'success' : 'warning')
+  } else {
+    lookupMessage.value = ''
+    uiStore.addToast(r.error || '제조사에서 워런티 정보를 찾지 못했습니다.', 'error')
+  }
+})
 
 // ─── Warranty 삭제 ────────────────────────────────────────────────────────────
 async function deleteWarranty() {

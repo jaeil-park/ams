@@ -7,7 +7,18 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
         </svg>
         납품 서버 재고 리스트
+        <button
+          v-if="servers.length"
+          type="button"
+          class="ml-auto px-2 py-1 rounded border border-blue-200 bg-white text-blue-600 font-semibold hover:bg-blue-50 disabled:opacity-50"
+          :disabled="lookupSubmitting || lookupOpen > 0"
+          title="이 프로젝트 서버 전체의 워런티를 Dell·HPE 제조사에서 조회해 서버 워런티에 저장합니다"
+          @click="lookupProjectWarranty"
+        >
+          {{ lookupOpen > 0 ? `워런티 조회 중 (${lookupOpen}건 남음)` : '서버 워런티 일괄 조회' }}
+        </button>
       </h4>
+      <p v-if="lookupSummary" class="text-3xs text-slate-500 mb-2">{{ lookupSummary }}</p>
       <div v-if="servers.length === 0" class="text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded bg-white">
         납품된 서버 장비가 없습니다.
       </div>
@@ -75,10 +86,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/utils/api'
 import AppBadge from '@/components/common/AppBadge.vue'
+import { useUiStore } from '@/stores/ui'
+import { useWarrantyLookup } from '@/composables/useWarrantyLookup'
 
 interface Props {
   projectId: number
@@ -88,6 +101,33 @@ const props = defineProps<Props>()
 const router = useRouter()
 
 const servers = ref<any[]>([])
+
+// ─── 프로젝트 서버 워런티 일괄 조회 ───────────────────────────────────────────
+const uiStore = useUiStore()
+const {
+  rows: lookupRows,
+  submitting: lookupSubmitting,
+  openCount: lookupOpen,
+  lookupInventory,
+} = useWarrantyLookup()
+const lookupSummary = computed(() => {
+  if (!lookupRows.value.length) return ''
+  const c = (s: string) => lookupRows.value.filter((r) => r.status === s).length
+  const parts = [`저장 ${lookupRows.value.filter((r) => r.applied).length}건`]
+  if (c('WAITING_EXTENSION')) parts.push(`Dell 확장 프로그램 대기 ${c('WAITING_EXTENSION')}건`)
+  if (c('PENDING') + c('RUNNING')) parts.push(`조회 중 ${c('PENDING') + c('RUNNING')}건`)
+  if (c('NOT_FOUND') + c('ERROR')) parts.push(`실패 ${c('NOT_FOUND') + c('ERROR')}건 (워런티 조회 메뉴에서 확인)`)
+  return `워런티 조회 ${lookupRows.value.length}건 — ${parts.join(' · ')}`
+})
+
+async function lookupProjectWarranty() {
+  try {
+    const rows = await lookupInventory({ projectId: props.projectId, apply: true })
+    uiStore.addToast(`프로젝트 서버 ${rows.length}대의 워런티 조회를 요청했습니다.`, 'success')
+  } catch (err: any) {
+    uiStore.addToast(err?.response?.data?.detail || '워런티 조회 요청 실패', 'error')
+  }
+}
 const parts = ref<any[]>([])
 
 onMounted(() => {

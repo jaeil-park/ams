@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>AMS Dell 워런티 조회</title>
+  <style>
+    body { font: 12px "Malgun Gothic", sans-serif; width: 420px; margin: 0; color: #0f172a; }
+    header { background: #0f172a; color: #fff; padding: 10px 12px; font-weight: bold; }
+    section { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+    h3 { margin: 0 0 6px; font-size: 12px; color: #334155; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font: inherit; }
+    textarea { font-family: Consolas, monospace; }
+    .row { display: flex; gap: 6px; margin-top: 6px; }
+    button { padding: 5px 10px; border: 0; border-radius: 4px; background: #2563eb; color: #fff; cursor: pointer; font: inherit; font-weight: bold; }
+    button.sub { background: #e2e8f0; color: #0f172a; }
+    button:disabled { opacity: .5; cursor: default; }
+    .muted { color: #64748b; }
+    #log { max-height: 220px; overflow: auto; font-family: Consolas, monospace; white-space: pre-wrap; background: #f8fafc; padding: 6px; border-radius: 4px; }
+    .ok { color: #047857; } .err { color: #be123c; }
+  </style>
+</head>
+<body>
+  <header>AMS Dell 워런티 조회</header>
+
+  <section id="login-box">
+    <h3>AMS 연결</h3>
+    <input id="ams-url" placeholder="AMS 주소 (예: http://192.168.0.22:8070)" />
+    <div class="row">
+      <input id="ams-email" placeholder="AMS 이메일" />
+      <input id="ams-pw" type="password" placeholder="비밀번호 (저장 안 함)" />
+    </div>
+    <div class="row"><button id="btn-login">로그인</button><span id="login-state" class="muted"></span></div>
+  </section>
+
+  <section>
+    <h3>AMS 대기 건 처리</h3>
+    <div class="muted">AMS '워런티 조회'에서 'Dell 확장 프로그램 대기'로 쌓인 건을 Dell 사이트에서 조회해 저장합니다.</div>
+    <div class="row"><button id="btn-pending">대기 건 처리</button><button id="btn-logout" class="sub">로그아웃</button></div>
+  </section>
+
+  <section>
+    <h3>직접 조회 (AMS 저장 안 함)</h3>
+    <textarea id="tags" rows="3" placeholder="서비스 태그를 줄바꿈/쉼표로 구분"></textarea>
+    <div class="row"><button id="btn-direct">조회</button><button id="btn-copy" class="sub">결과 복사(엑셀 붙여넣기)</button></div>
+  </section>
+
+  <section><div id="log" class="muted">준비됨</div></section>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# ─── AMS warranty-worker — HPE 포털 워런티 자동 조회 ───────────────────────────
+# Playwright 공식 이미지(Chromium + 시스템 라이브러리 포함). requirements-worker.txt 의 playwright 버전과 맞출 것
+FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
+
+ARG APP_VERSION=0.0.0
+ENV APP_VERSION=${APP_VERSION} \
+    PYTHONUNBUFFERED=1 \
+    TZ=Asia/Seoul
+
+WORKDIR /app
+
+COPY requirements.txt requirements-worker.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt -r requirements-worker.txt
+
+COPY . .
+
+# 로그인 세션 보관 경로 (볼륨 마운트)
+RUN mkdir -p /data
+VOLUME ["/data"]
+
+CMD ["python", "-m", "worker.hpe_worker"]

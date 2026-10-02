@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "AMS Dell 워런티 조회",
+  "version": "1.0.0",
+  "description": "AMS 워런티 조회 대기열의 Dell 서비스 태그를 Dell 지원 사이트에서 조회해 AMS에 저장합니다.",
+  "permissions": ["storage", "scripting", "tabs"],
+  "host_permissions": ["https://www.dell.com/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "AMS Dell 워런티 조회",
+    "default_popup": "popup.html"
+  }
+}

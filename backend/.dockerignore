@@ -20,3 +20,7 @@ alembic/versions/*.pyc
 .pytest_cache
 htmlcov
 .coverage
+
+# HPE 로그인 세션 / 단독 시험 파일
+*hpe_state*.json
+tests

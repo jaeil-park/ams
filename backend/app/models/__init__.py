@@ -15,3 +15,4 @@ from app.models.warranty import Warranty
 from app.models.audit_log import AuditLog
 from app.models.system_log import SystemLog
 from app.models.approval import Approval
+from app.models.warranty_lookup import WarrantyLookup, WarrantyWorkerStatus
