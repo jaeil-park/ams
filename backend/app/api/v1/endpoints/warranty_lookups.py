@@ -22,6 +22,7 @@ from app import models
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.schemas.common import ResponseEnvelope
+from app.services.audit import log_action
 from app.services.dell_warranty import dell_service
 from app.services.warranty_lookup import (
     OPEN_STATUSES,
@@ -45,6 +46,10 @@ class InventoryLookupCreate(BaseModel):
     inventory_ids: list[int] | None = None
     project_id: int | None = None
     apply_to_inventory: bool = True
+
+
+class LookupDelete(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=500)
 
 
 class ExtensionResult(BaseModel):
@@ -125,7 +130,7 @@ async def list_lookups(
     current_user: models.User = Depends(get_current_user),
 ):
     """batch_id 가 있으면 그 요청의 결과, 없으면 최근 조회 이력"""
-    q = select(models.WarrantyLookup)
+    q = select(models.WarrantyLookup).where(models.WarrantyLookup.is_deleted == False)  # noqa: E712
     if batch_id:
         q = q.where(models.WarrantyLookup.batch_id == batch_id).order_by(models.WarrantyLookup.id)
     else:
@@ -144,7 +149,8 @@ async def lookup_status(
     """조회 경로 상태: Dell(API/확장 프로그램), HPE 작업자(로그인 상태·마지막 응답), 대기 건수"""
     counts = dict((await db.execute(
         select(models.WarrantyLookup.vendor, func.count())
-        .where(models.WarrantyLookup.status.in_(OPEN_STATUSES))
+        .where(models.WarrantyLookup.status.in_(OPEN_STATUSES),
+               models.WarrantyLookup.is_deleted == False)  # noqa: E712
         .group_by(models.WarrantyLookup.vendor)
     )).all())
     workers = {}
@@ -174,7 +180,8 @@ async def pending_dell(
     """확장 프로그램이 Dell 사이트에서 조회할 대기 건 (오래된 순)"""
     rows = (await db.execute(
         select(models.WarrantyLookup)
-        .where(models.WarrantyLookup.vendor == "DELL", models.WarrantyLookup.status == "WAITING_EXTENSION")
+        .where(models.WarrantyLookup.vendor == "DELL", models.WarrantyLookup.status == "WAITING_EXTENSION",
+               models.WarrantyLookup.is_deleted == False)  # noqa: E712
         .order_by(models.WarrantyLookup.id).limit(limit)
     )).scalars().all()
     return ResponseEnvelope(data=[{"id": r.id, "serial_tag": r.serial_tag} for r in rows])
@@ -189,7 +196,7 @@ async def post_extension_result(
 ):
     """Dell 확장 프로그램이 조회한 결과를 등록한다. (Dell 대기 건만 허용)"""
     row = await db.get(models.WarrantyLookup, lookup_id)
-    if not row:
+    if not row or row.is_deleted:
         raise HTTPException(status_code=404, detail="조회 요청을 찾을 수 없습니다.")
     if row.vendor != "DELL" or row.status not in ("WAITING_EXTENSION", "RUNNING"):
         raise HTTPException(status_code=409, detail="확장 프로그램 결과를 받을 수 있는 상태가 아닙니다.")
@@ -208,7 +215,7 @@ async def retry_lookup(
 ):
     """실패(ERROR)·미발견(NOT_FOUND) 건을 다시 대기열에 넣는다."""
     row = await db.get(models.WarrantyLookup, lookup_id)
-    if not row:
+    if not row or row.is_deleted:
         raise HTTPException(status_code=404, detail="조회 요청을 찾을 수 없습니다.")
     if row.vendor not in ("DELL", "HPE"):
         raise HTTPException(status_code=400, detail="제조사를 알 수 없는 건은 제조사를 지정해 새로 요청하세요.")
@@ -222,3 +229,33 @@ async def retry_lookup(
     db.add(row)
     await db.commit()
     return ResponseEnvelope(data=await _one_out(db, row))
+
+
+# ─── 조회 기록 삭제 (숨김) ─────────────────────────────────────────────────────
+
+@router.post("/delete")
+async def delete_lookups(
+    body: LookupDelete,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    조회 기록을 삭제(숨김)한다. 대기·진행 중인 건은 조회도 취소된다.
+    이미 서버 워런티(warranties)에 반영된 값은 그대로 둔다.
+    """
+    rows = (await db.execute(
+        select(models.WarrantyLookup).where(
+            models.WarrantyLookup.id.in_(body.ids),
+            models.WarrantyLookup.is_deleted == False,  # noqa: E712
+        )
+    )).scalars().all()
+    for r in rows:
+        r.is_deleted = True
+        db.add(r)
+    await log_action(
+        db, user_id=current_user.id, action="DELETE", resource_type="WARRANTY_LOOKUP",
+        after={"ids": [r.id for r in rows], "serials": [r.serial_tag for r in rows]},
+    )
+    await db.commit()
+    return ResponseEnvelope(data={"deleted": len(rows)})
+

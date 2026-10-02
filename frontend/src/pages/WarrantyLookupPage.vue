@@ -6,7 +6,7 @@
         <h1 class="text-xl font-bold text-slate-800">워런티 조회</h1>
         <p class="text-xs text-slate-400 mt-1">Dell·HPE 시리얼을 붙여넣으면 제조사 워런티(보증) 기간을 자동으로 조회합니다</p>
       </div>
-      <AppButton variant="secondary" class="text-xs px-3 py-1.5" @click="loadState">상태 새로고침</AppButton>
+      <AppButton variant="secondary" class="text-xs px-3 py-1.5" :loading="reloading" @click="reloadAll">새로고침</AppButton>
     </div>
 
     <!-- 조회 경로 상태 -->
@@ -83,12 +83,31 @@
             진행 중 {{ openCount }}건<template v-if="etaSeconds"> · 예상 약 {{ fmtEta(etaSeconds) }}</template> · 자동 새로고침
           </span>
           <button type="button" class="text-xs text-blue-600 hover:underline" @click="showRecent">최근 조회 이력</button>
+          <AppButton
+            variant="danger"
+            class="text-xs px-3 py-1"
+            :disabled="!selected.length"
+            :loading="deleting"
+            @click="deleteSelected"
+          >
+            선택 삭제{{ selected.length ? ` (${selected.length})` : '' }}
+          </AppButton>
         </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 select-none">
             <tr>
+              <th class="pl-4 py-3 w-8">
+                <input
+                  type="checkbox"
+                  class="rounded border-slate-300"
+                  :checked="allSelected"
+                  :disabled="!rows.length"
+                  title="전체 선택"
+                  @change="toggleAll"
+                />
+              </th>
               <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">시리얼</th>
               <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">제조사</th>
               <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">상태</th>
@@ -103,9 +122,12 @@
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-if="!rows.length">
-              <td colspan="10" class="px-4 py-12 text-center text-slate-400">조회 이력이 없습니다. 시리얼을 입력하고 [조회]를 누르세요.</td>
+              <td colspan="11" class="px-4 py-12 text-center text-slate-400">조회 이력이 없습니다. 시리얼을 입력하고 [조회]를 누르세요.</td>
             </tr>
-            <tr v-for="r in rows" :key="r.id" class="hover:bg-slate-50">
+            <tr v-for="r in rows" :key="r.id" class="hover:bg-slate-50" :class="selected.includes(r.id) ? 'bg-blue-50' : ''">
+              <td class="pl-4 py-2">
+                <input v-model="selected" type="checkbox" class="rounded border-slate-300" :value="r.id" />
+              </td>
               <td class="px-4 py-2 font-mono text-slate-700">{{ r.serial_tag }}</td>
               <td class="px-4 py-2 text-xs">{{ r.vendor }}</td>
               <td class="px-4 py-2 whitespace-nowrap">
@@ -149,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import AppButton from '@/components/common/AppButton.vue'
 import { useUiStore } from '@/stores/ui'
 import {
@@ -162,8 +184,58 @@ import {
 } from '@/composables/useWarrantyLookup'
 
 const uiStore = useUiStore()
-const { rows, batchId, submitting, error, openCount, etaSeconds, lookupSerials, retry, restore, loadRecent } =
-  useWarrantyLookup()
+const {
+  rows, batchId, submitting, error, openCount, etaSeconds,
+  lookupSerials, retry, restore, loadRecent, reload, removeLookups,
+} = useWarrantyLookup()
+
+// ─── 선택 삭제 ────────────────────────────────────────────────────────────────
+const selected = ref<number[]>([])
+const deleting = ref(false)
+const reloading = ref(false)
+const allSelected = computed(() => rows.value.length > 0 && rows.value.every((r) => selected.value.includes(r.id)))
+
+// 목록이 바뀌면 사라진 행은 선택에서 뺀다
+watch(rows, (list) => {
+  const ids = new Set(list.map((r) => r.id))
+  selected.value = selected.value.filter((id) => ids.has(id))
+})
+
+function toggleAll() {
+  selected.value = allSelected.value ? [] : rows.value.map((r) => r.id)
+}
+
+async function deleteSelected() {
+  const ids = [...selected.value]
+  const open = rows.value.filter((r) => ids.includes(r.id) && ['PENDING', 'RUNNING', 'WAITING_EXTENSION'].includes(r.status)).length
+  const lines = [`선택한 조회 기록 ${ids.length}건을 삭제할까요?`]
+  if (open) lines.push(`진행 중인 ${open}건은 조회도 취소됩니다.`)
+  lines.push('(이미 서버 워런티에 반영된 값은 그대로 유지됩니다.)')
+  const msg = lines.join('\n')
+  if (!window.confirm(msg)) return
+  deleting.value = true
+  try {
+    const n = await removeLookups(ids)
+    selected.value = []
+    uiStore.addToast(`조회 기록 ${n}건을 삭제했습니다.`, 'success')
+    loadState()
+  } catch {
+    uiStore.addToast('삭제에 실패했습니다.', 'error')
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function reloadAll() {
+  reloading.value = true
+  try {
+    await Promise.all([loadState(), reload()])
+  } catch {
+    uiStore.addToast('새로고침에 실패했습니다.', 'error')
+  } finally {
+    reloading.value = false
+  }
+}
 const LAST_BATCH_KEY = 'ams.warranty.lastBatch'
 
 // 마지막 조회 요청 번호 — 다른 메뉴에 갔다 와도 결과를 이어서 보여 주기 위한 브라우저 보관값

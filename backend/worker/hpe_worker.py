@@ -53,7 +53,8 @@ async def _claim() -> list[int]:
     async with async_session() as db:
         rows = (await db.execute(
             select(models.WarrantyLookup)
-            .where(models.WarrantyLookup.vendor == NAME, models.WarrantyLookup.status == "PENDING")
+            .where(models.WarrantyLookup.vendor == NAME, models.WarrantyLookup.status == "PENDING",
+                   models.WarrantyLookup.is_deleted == False)  # noqa: E712 — 삭제(취소)된 건 제외
             .order_by(models.WarrantyLookup.id)
             .limit(CLAIM)
             .with_for_update(skip_locked=True)
@@ -76,6 +77,8 @@ async def _set_status(lookup_id: int, status: str, error: str | None = None) -> 
 async def _process(client: HpePortalClient, lookup_id: int) -> None:
     async with async_session() as db:
         row = await db.get(models.WarrantyLookup, lookup_id)
+        if row is None or row.is_deleted:
+            return  # 대기 중 삭제(취소)된 건
         serial, attempts = row.serial_tag, row.attempts
     logger.info("HPE 조회: %s (시도 %d)", serial, attempts)
     try:

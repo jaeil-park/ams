@@ -9,7 +9,7 @@ app/models/warranty_lookup.py — 제조사 워런티 조회 요청(대기열) /
 """
 
 from datetime import date, datetime
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -38,6 +38,8 @@ class WarrantyLookup(Base, TimestampMixin):
     error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     requested_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # 조회 기록 삭제는 숨김 처리 (claude_rule.md §5 Soft Delete). 대기 중 건을 삭제하면 조회도 취소된다.
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
 
 
 class WarrantyWorkerStatus(Base, TimestampMixin):

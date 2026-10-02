@@ -65,6 +65,7 @@ export function useWarrantyLookup(pollMs = 3000) {
   const submitting = ref(false)
   const error = ref<string | null>(null)
   let timer: ReturnType<typeof setTimeout> | null = null
+  let recentLimit = 100
 
   const openCount = computed(() => rows.value.filter((r) => OPEN.includes(r.status)).length)
   const isPolling = computed(() => timer !== null)
@@ -74,9 +75,10 @@ export function useWarrantyLookup(pollMs = 3000) {
     timer = null
   }
 
+  /** 현재 보기 갱신 — 요청 결과(batch) 보기면 그 요청, 아니면 최근 조회 이력 */
   async function refresh() {
-    if (!batchId.value) return
-    const res = await api.get('/warranty-lookups', { params: { batch_id: batchId.value } })
+    const params = batchId.value ? { batch_id: batchId.value } : { limit: recentLimit }
+    const res = await api.get('/warranty-lookups', { params })
     rows.value = res.data.data
   }
 
@@ -129,11 +131,21 @@ export function useWarrantyLookup(pollMs = 3000) {
 
   async function retry(id: number) {
     await api.post(`/warranty-lookups/${id}/retry`)
-    if (batchId.value) {
-      await refresh()
-    } else {
-      await loadRecent()
-    }
+    await refresh()
+    schedule()
+  }
+
+  /** 조회 기록 삭제(숨김) — 대기·진행 중인 건은 조회도 취소된다 */
+  async function removeLookups(ids: number[]) {
+    const res = await api.post('/warranty-lookups/delete', { ids })
+    await refresh()
+    schedule()
+    return res.data.data.deleted as number
+  }
+
+  /** 수동 새로고침 (진행 중이면 자동 새로고침 재개) */
+  async function reload() {
+    await refresh()
     schedule()
   }
 
@@ -149,8 +161,9 @@ export function useWarrantyLookup(pollMs = 3000) {
   async function loadRecent(limit = 100) {
     stop()
     batchId.value = null
-    const res = await api.get('/warranty-lookups', { params: { limit } })
-    rows.value = res.data.data
+    recentLimit = limit
+    await refresh()
+    schedule()
   }
 
   /** 남은 예상 시간(초): HPE 건당 약 25초, Dell 확장 프로그램 대기 건은 제외 */
@@ -162,7 +175,7 @@ export function useWarrantyLookup(pollMs = 3000) {
 
   return {
     rows, batchId, submitting, error, openCount, isPolling, etaSeconds,
-    lookupSerials, lookupInventory, refresh, retry, restore, loadRecent, stop,
+    lookupSerials, lookupInventory, refresh, reload, retry, removeLookups, restore, loadRecent, stop,
   }
 }
 
