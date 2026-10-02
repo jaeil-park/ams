@@ -88,14 +88,57 @@ class HpePortalClient:
         if _CHALLENGE.search(html) or await page.locator("iframe[src*='captcha']").count():
             raise HpeLoginRequired("캡차 또는 추가 인증(MFA)이 요구됩니다. HPE 계정 설정을 확인하세요.")
 
+    async def _wait_state(self, page: Page, timeout_sec: float = 60) -> str:
+        """
+        HPE 포털은 로그인 여부에 따라 여러 번 리다이렉트된다. 화면이 자리 잡을 때까지 기다려
+        LOGIN(로그인 화면) / READY(보증 확인 입력 화면) / UNKNOWN(그 밖의 화면) 중 하나를 돌려준다.
+        """
+        waited = 0.0
+        while waited < timeout_sec:
+            try:
+                url = page.url
+                if "auth.hpe.com" in url or await page.locator("#email-sign-in").count():
+                    return "LOGIN"
+                if ("warrantycheck" in url and "LoginFlow" not in url
+                        and await page.locator("input.slds-input:visible").count()):
+                    return "READY"
+            except Exception:  # noqa: BLE001 — 리다이렉트 중 페이지 컨텍스트가 바뀌면 다시 확인
+                pass
+            await page.wait_for_timeout(1500)
+            waited += 1.5
+        return "UNKNOWN"
+
+    async def _diagnose(self, page: Page) -> str:
+        """예상과 다른 화면을 /data 에 스크린샷·텍스트로 남기고 요약 문구를 돌려준다."""
+        base = os.path.dirname(settings.HPE_STATE_PATH) or "."
+        text = ""
+        try:
+            text = (await page.inner_text("body"))[:3000]
+            with open(os.path.join(base, "hpe_last_page.txt"), "w", encoding="utf-8") as f:
+                f.write(f"URL: {page.url}\n\n{text}")
+            await page.screenshot(path=os.path.join(base, "hpe_last_page.png"), full_page=True)
+        except Exception:  # noqa: BLE001
+            logger.exception("HPE 진단 자료 저장 실패")
+        return " ".join(text.split())[:160]
+
     async def _open_check_page(self, page: Page) -> None:
         await page.goto(WARRANTY_URL, wait_until="domcontentloaded", timeout=60000)
-        await page.wait_for_load_state("networkidle", timeout=60000)
-        if "auth.hpe.com" in page.url or await page.locator("#email-sign-in").count():
+        state = await self._wait_state(page)
+        if state == "LOGIN":
             await self._login(page)
             await page.goto(WARRANTY_URL, wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_load_state("networkidle", timeout=60000)
-        await page.locator("input.slds-input").first.wait_for(state="visible", timeout=45000)
+            state = await self._wait_state(page)
+            if state == "LOGIN":
+                raise HpeLoginRequired("로그인 후에도 다시 로그인 화면이 나옵니다. 계정 정보를 확인하세요.")
+        if state != "READY":
+            summary = await self._diagnose(page)
+            if "LoginFlow" in page.url:
+                raise HpeLoginRequired(
+                    "HPE가 로그인 후 추가 절차 화면(DCELoginFlowScreen)을 요구합니다. 조회 전용 계정으로 일반 브라우저에서 "
+                    "support.hpe.com 에 한 번 직접 로그인해 약관·프로필 절차를 마친 뒤 작업자를 재시작하세요. "
+                    f"(화면: {summary} / 스크린샷: hpe_last_page.png)"
+                )
+            raise HpeLoginRequired(f"HPE 보증 확인 화면을 열지 못했습니다 ({page.url[:80]}): {summary}")
 
     async def ensure_login(self) -> None:
         """작업자 시작 시 세션 확인 (필요하면 로그인)"""
