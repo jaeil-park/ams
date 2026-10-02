@@ -29,6 +29,51 @@ SERIAL_INPUT = "input.slds-input[type='text']:visible"
 _CHALLENGE = re.compile(r"captcha|recaptcha|hcaptcha|verify it'?s you|인증 코드|verification code|okta verify|본인 확인", re.I)
 
 
+# HPE 포털은 Salesforce 컴포넌트(Shadow DOM) 안에 결과를 그린다. document.body.innerText 는 Shadow DOM 안의
+# 글자를 읽지 못하므로, Shadow DOM·슬롯까지 따라 들어가 innerText 와 같은 형식(표 칸 = 탭 한 줄, 행 = 빈 줄)으로 모은다.
+DEEP_TEXT_JS = r"""() => {
+  const BLOCK = new Set(['DIV','P','SECTION','ARTICLE','HEADER','FOOTER','LI','UL','OL','H1','H2','H3','H4','H5','H6',
+    'TABLE','THEAD','TBODY','TFOOT','FORM','LABEL','DT','DD','DL','NAV','MAIN','ASIDE','BR']);
+  const SKIP = new Set(['SCRIPT','STYLE','NOSCRIPT','TEMPLATE','svg','SVG']);
+  let out = '';
+  const nl = () => { if (out && !out.endsWith('\n')) out += '\n'; };
+  // 현재 행 시작(min) 이후의 끝 줄바꿈만 지운다 — 앞 행과의 경계(빈 줄)는 보존
+  const trimTo = (min) => { while (out.length > min && out.endsWith('\n')) out = out.slice(0, -1); };
+  const shown = (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; };
+  function kids(el) {
+    if (el.tagName === 'SLOT') return el.assignedNodes({ flatten: true });
+    return [...(el.shadowRoot || el).childNodes];
+  }
+  function walk(node) {
+    if (node.nodeType === 3) {
+      const t = node.textContent.replace(/\s+/g, ' ').trim();
+      if (t) out += (out && !out.endsWith('\n') && !out.endsWith(' ') ? ' ' : '') + t;
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    if (SKIP.has(node.tagName) || !shown(node)) return;
+    if (node.tagName === 'TR') {
+      nl();
+      const start = out.length;
+      const cells = [...node.children].filter((c) => c.tagName === 'TD' || c.tagName === 'TH');
+      cells.forEach((c, i) => {
+        if (i) { trimTo(start); out += '\n\t\n'; }
+        kids(c).forEach(walk);
+      });
+      trimTo(start);
+      out += '\n\n';
+      return;
+    }
+    const block = BLOCK.has(node.tagName);
+    if (block) nl();
+    kids(node).forEach(walk);
+    if (block) nl();
+  }
+  walk(document.body);
+  return out;
+}"""
+
+
 class HpeLoginRequired(Exception):
     """자동 로그인이 불가능한 상태 (캡차, 추가 인증, 계정 정보 오류 등)"""
 
@@ -115,7 +160,7 @@ class HpePortalClient:
         base = os.path.dirname(settings.HPE_STATE_PATH) or "."
         text = ""
         try:
-            text = (await page.inner_text("body"))[:3000]
+            text = (await page.evaluate(DEEP_TEXT_JS))[:20000]
             with open(os.path.join(base, "hpe_last_page.txt"), "w", encoding="utf-8") as f:
                 f.write(f"URL: {page.url}\n\n{text}")
             await page.screenshot(path=os.path.join(base, "hpe_last_page.png"), full_page=True)
@@ -161,24 +206,31 @@ class HpePortalClient:
             await self._open_check_page(page)
             box = page.locator(SERIAL_INPUT).first
             await box.fill(serial)
+            await box.press("Tab")  # 입력값 확정(change 이벤트)
             await page.get_by_role("button", name=re.compile(r"제출|Submit")).first.click()
+            # Playwright 텍스트 검색은 Shadow DOM 안까지 찾는다
+            result = page.get_by_text(re.compile(r"제품 번호|Product Number"))
+            missing = page.get_by_text(re.compile(r"찾을 수 없|유효하지 않|not found|could not find|invalid serial", re.I))
             try:
-                await page.wait_for_function(
-                    "() => /제품 번호|Product Number|찾을 수 없|not found|유효하지 않/i.test(document.body.innerText)",
-                    timeout=45000,
-                )
+                await result.or_(missing).first.wait_for(state="visible", timeout=45000)
             except PwTimeout:
-                return {"status": "ERROR", "error": "HPE 조회 결과가 45초 안에 나오지 않았습니다."}
-            await page.wait_for_timeout(1500)
-            text = await page.evaluate("() => document.body.innerText")
+                summary = await self._diagnose(page)
+                return {"status": "ERROR", "error": f"HPE 조회 결과가 45초 안에 나오지 않았습니다. (화면: {summary})"}
+            await page.wait_for_timeout(2500)  # 표가 다 그려질 시간
+            text = await page.evaluate(DEEP_TEXT_JS)
             if not _RESULT_MARK.search(text):
                 if hpe_not_found(text):
                     return {"status": "NOT_FOUND", "error": "HPE 포털에서 찾을 수 없는 일련 번호"}
-                return {"status": "ERROR", "error": "HPE 결과 화면을 해석하지 못했습니다."}
+                summary = await self._diagnose(page)
+                return {"status": "ERROR", "error": f"HPE 결과 화면을 해석하지 못했습니다. (화면: {summary})"}
 
             info = parse_hpe_text(text)
             s = summarize_hpe_rows(info["rows"])
             detail = {"product_number": info.get("product_number"), "rows": info["rows"]}
+            if not info["rows"]:
+                summary = await self._diagnose(page)
+                return {"status": "ERROR", "product_name": info.get("product_name"),
+                        "error": f"HPE 결과 표를 해석하지 못했습니다 (hpe_last_page.txt 확인). (화면: {summary})"}
             if not s["end_date"]:
                 return {"status": "NOT_FOUND", "product_name": info.get("product_name"), "detail": detail,
                         "error": "하드웨어 워런티 항목이 없습니다."}
