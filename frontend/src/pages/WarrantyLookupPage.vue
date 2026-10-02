@@ -75,14 +75,13 @@
     <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
       <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between select-none">
         <h2 class="text-sm font-bold text-slate-700">
-          {{ batchId ? '조회 결과' : '최근 조회 이력' }}
+          조회 이력
           <span v-if="rows.length" class="text-slate-400 font-normal">{{ rows.length }}건</span>
         </h2>
         <div class="flex items-center gap-3">
           <span v-if="openCount" class="text-xs text-cyan-700">
             진행 중 {{ openCount }}건<template v-if="etaSeconds"> · 예상 약 {{ fmtEta(etaSeconds) }}</template> · 자동 새로고침
           </span>
-          <button type="button" class="text-xs text-blue-600 hover:underline" @click="showRecent">최근 조회 이력</button>
           <AppButton
             variant="danger"
             class="text-xs px-3 py-1"
@@ -124,7 +123,13 @@
             <tr v-if="!rows.length">
               <td colspan="11" class="px-4 py-12 text-center text-slate-400">조회 이력이 없습니다. 시리얼을 입력하고 [조회]를 누르세요.</td>
             </tr>
-            <tr v-for="r in rows" :key="r.id" class="hover:bg-slate-50" :class="selected.includes(r.id) ? 'bg-blue-50' : ''">
+            <tr
+              v-for="r in rows"
+              :key="r.id"
+              class="hover:bg-slate-50"
+              :class="selected.includes(r.id) ? 'bg-blue-50' : r.batch_id === highlightBatch ? 'bg-amber-50' : ''"
+              :title="r.batch_id === highlightBatch ? '방금 요청한 조회' : ''"
+            >
               <td class="pl-4 py-2">
                 <input v-model="selected" type="checkbox" class="rounded border-slate-300" :value="r.id" />
               </td>
@@ -186,7 +191,7 @@ import {
 const uiStore = useUiStore()
 const {
   rows, batchId, submitting, error, openCount, etaSeconds,
-  lookupSerials, retry, restore, loadRecent, reload, removeLookups,
+  lookupSerials, retry, loadRecent, reload, removeLookups,
 } = useWarrantyLookup()
 
 // ─── 선택 삭제 ────────────────────────────────────────────────────────────────
@@ -237,8 +242,10 @@ async function reloadAll() {
   }
 }
 const LAST_BATCH_KEY = 'ams.warranty.lastBatch'
+// 결과 표는 항상 전체 조회 이력(최근 100건)을 보여 주고, 마지막 요청 건만 노란색으로 강조한다
+const highlightBatch = ref<string | null>(null)
 
-// 마지막 조회 요청 번호 — 다른 메뉴에 갔다 와도 결과를 이어서 보여 주기 위한 브라우저 보관값
+// 마지막 조회 요청 번호 — 다른 메뉴에 갔다 와도 방금 요청한 건을 강조하기 위한 브라우저 보관값
 function saveLastBatch(id: string | null) {
   try {
     if (id) localStorage.setItem(LAST_BATCH_KEY, id)
@@ -258,14 +265,6 @@ function readLastBatch(): string | null {
 
 function fmtEta(sec: number) {
   return sec < 60 ? `${sec}초` : `${Math.ceil(sec / 60)}분`
-}
-
-async function showRecent() {
-  try {
-    await loadRecent()
-  } catch {
-    uiStore.addToast('최근 조회 이력을 불러오지 못했습니다.', 'error')
-  }
 }
 
 const serialText = ref('')
@@ -310,8 +309,10 @@ async function loadState() {
 async function submit() {
   try {
     await lookupSerials(parsedSerials.value, vendor.value, applyToInventory.value)
+    highlightBatch.value = batchId.value
     saveLastBatch(batchId.value)
     uiStore.addToast(`${parsedSerials.value.length}건 조회를 요청했습니다.`, 'success')
+    await loadRecent()
     loadState()
   } catch {
     uiStore.addToast(error.value || '조회 요청 실패', 'error')
@@ -338,12 +339,11 @@ function downloadCsv() {
 
 onMounted(async () => {
   loadState()
-  const last = readLastBatch()
+  highlightBatch.value = readLastBatch()
   try {
-    if (last) await restore(last)
-    else await loadRecent()
+    await loadRecent()
   } catch {
-    saveLastBatch(null)
+    uiStore.addToast('조회 이력을 불러오지 못했습니다.', 'error')
   }
 })
 </script>
