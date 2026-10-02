@@ -156,10 +156,32 @@ async function lookupInDellPage(tag) {
       body: JSON.stringify({ assetFormat: 'servicetag', assetId: enc, appName: 'home' }),
     })
     if (!r.ok) return { ok: false, http: r.status }
-    return { ok: true, data: await r.json() }
+    const data = await r.json()
+    // 모델명: 응답의 제품 지원 페이지(ipsOverviewUrl) 제목에서 가져온다. 실패해도 워런티 결과는 그대로 쓴다.
+    let title = null
+    if (data && data.ipsOverviewUrl) {
+      try {
+        const page = await fetch(data.ipsOverviewUrl, { credentials: 'include' })
+        if (page.ok) {
+          const m = (await page.text()).match(/<title[^>]*>([^<]+)<\/title>/i)
+          title = m ? m[1].trim() : null
+        }
+      } catch {
+        title = null
+      }
+    }
+    return { ok: true, data, title }
   } catch (e) {
     return { ok: false, error: String(e) }
   }
+}
+
+/** 'PowerEdge R760xs Rack Server에 대한 지원 | 개요 | Dell 대한민국' / 'Support for PowerEdge R760 | Overview | Dell US' → 모델명 */
+function productFromTitle(title) {
+  if (!title) return null
+  let s = title.split('|')[0].trim()
+  s = s.replace(/에 대한 지원$/, '').replace(/^Support for\s+/i, '').trim()
+  return s || null
 }
 
 async function lookupTag(tabId, tag) {
@@ -173,12 +195,17 @@ async function lookupTag(tabId, tag) {
   const d = result.data || {}
   const start = toIso(d.warrantyStartDate)
   const end = toIso(d.warrantyEndDate)
+  const product = productFromTitle(result.title)
   if (!end) {
-    return { status: 'NOT_FOUND', error: d.warrantyResponseErrorMessage || d.supportServicesHeading || '워런티 정보 없음' }
+    return {
+      status: 'NOT_FOUND', product_name: product,
+      error: d.warrantyResponseErrorMessage || d.supportServicesHeading || '워런티 정보 없음',
+    }
   }
   return {
     status: 'DONE', start_date: start, end_date: end,
     service_level: d.warrantyDisplayName || null,
+    product_name: product,
     detail: { on_support: d.onSupport, raw_start: d.warrantyStartDate, raw_end: d.warrantyEndDate },
   }
 }
@@ -198,7 +225,7 @@ async function processPending() {
       try {
         await amsFetch(`/warranty-lookups/${it.id}/result`, { method: 'POST', body: JSON.stringify(r) })
         if (r.status === 'DONE') ok++
-        log(`${it.serial_tag}: ${r.status === 'DONE' ? `${r.start_date} ~ ${r.end_date} (${r.service_level || ''})` : r.error}`,
+        log(`${it.serial_tag}: ${r.status === 'DONE' ? `${r.start_date} ~ ${r.end_date} (${r.service_level || ''}) ${r.product_name || ''}` : r.error}`,
           r.status === 'DONE' ? 'ok' : 'err')
       } catch (e) {
         log(`${it.serial_tag}: AMS 저장 실패 — ${e.message}`, 'err')
@@ -223,7 +250,7 @@ async function directLookup() {
     for (const t of tags) {
       const r = await lookupTag(tabId, t)
       lastResults.push({ tag: t, ...r })
-      log(`${t}: ${r.status === 'DONE' ? `${r.start_date} ~ ${r.end_date} (${r.service_level || ''})` : r.error}`,
+      log(`${t}: ${r.status === 'DONE' ? `${r.start_date} ~ ${r.end_date} (${r.service_level || ''}) ${r.product_name || ''}` : r.error}`,
         r.status === 'DONE' ? 'ok' : 'err')
       await sleep(DELAY_MS)
     }
@@ -236,9 +263,9 @@ async function directLookup() {
 
 async function copyResults() {
   if (!lastResults.length) return log('복사할 직접 조회 결과가 없습니다.', 'err')
-  const lines = [['서비스태그', '상태', '시작일', '종료일', '지원등급', '비고'].join('\t')]
+  const lines = [['서비스태그', '상태', '시작일', '종료일', '지원등급', '모델', '비고'].join('\t')]
   for (const r of lastResults) {
-    lines.push([r.tag, r.status, r.start_date || '', r.end_date || '', r.service_level || '', r.error || ''].join('\t'))
+    lines.push([r.tag, r.status, r.start_date || '', r.end_date || '', r.service_level || '', r.product_name || '', r.error || ''].join('\t'))
   }
   await navigator.clipboard.writeText(lines.join('\n'))
   log('결과를 복사했습니다. 엑셀에 붙여넣으세요.', 'ok')
