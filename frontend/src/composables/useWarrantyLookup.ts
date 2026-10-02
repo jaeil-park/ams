@@ -129,13 +129,41 @@ export function useWarrantyLookup(pollMs = 3000) {
 
   async function retry(id: number) {
     await api.post(`/warranty-lookups/${id}/retry`)
+    if (batchId.value) {
+      await refresh()
+    } else {
+      await loadRecent()
+    }
+    schedule()
+  }
+
+  /** 이전 요청(batch_id) 결과를 다시 불러와 진행 중이면 이어서 새로고침 */
+  async function restore(id: string) {
+    stop()
+    batchId.value = id
     await refresh()
     schedule()
   }
 
+  /** 최근 조회 이력 (요청 구분 없이 최근 limit 건) */
+  async function loadRecent(limit = 100) {
+    stop()
+    batchId.value = null
+    const res = await api.get('/warranty-lookups', { params: { limit } })
+    rows.value = res.data.data
+  }
+
+  /** 남은 예상 시간(초): HPE 건당 약 25초, Dell 확장 프로그램 대기 건은 제외 */
+  const etaSeconds = computed(() =>
+    rows.value.filter((r) => r.vendor === 'HPE' && (r.status === 'PENDING' || r.status === 'RUNNING')).length * 25,
+  )
+
   onUnmounted(stop)
 
-  return { rows, batchId, submitting, error, openCount, isPolling, lookupSerials, lookupInventory, refresh, retry, stop }
+  return {
+    rows, batchId, submitting, error, openCount, isPolling, etaSeconds,
+    lookupSerials, lookupInventory, refresh, retry, restore, loadRecent, stop,
+  }
 }
 
 export async function fetchLookupState(): Promise<WarrantyLookupState> {
