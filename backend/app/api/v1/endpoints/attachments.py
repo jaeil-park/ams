@@ -98,8 +98,17 @@ async def _merge_po_into_project(
     warnings: list[str] = []
 
     # 1) PO 번호 — 선지원 후 PO 발행 시 임시 번호를 실제 번호로 정정
+    #    자동 정정은 '임시 번호'(NOPO-… 내부 관리번호, POXXXXXX)일 때만 한다.
+    #    이미 실제 PO 번호가 있는데 문서 번호가 다르면 다른 건의 문서를 잘못 올렸을 가능성이 크다.
     po_number = parsed.get("po_number")
-    if po_number and po_number != project.po_number:
+    current = (project.po_number or "").upper()
+    is_placeholder = (not current) or current.startswith("NOPO-") or "XXXX" in current
+    if po_number and po_number != project.po_number and not is_placeholder:
+        warnings.append(
+            f"첨부한 PO 문서의 번호({po_number})가 등록된 PO 번호({project.po_number})와 다릅니다. "
+            "다른 건의 문서를 첨부했는지 확인해 주세요. PO 번호는 자동으로 바꾸지 않았습니다."
+        )
+    elif po_number and po_number != project.po_number:
         duplicate = await db.execute(
             select(models.Project).where(
                 models.Project.po_number == po_number,

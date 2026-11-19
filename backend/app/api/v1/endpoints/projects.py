@@ -19,6 +19,7 @@ from app.services.completion_check import (
     blocking_reasons,
     evaluate_manual,
     run_auto_checks,
+    validate_exemptions,
 )
 
 router = APIRouter()
@@ -29,6 +30,30 @@ _PROJECT_STATUS_TO_SERVER_STATUS = {
     "COMPLETED": "DELIVERED",
     "IN_PROGRESS": "SCHEDULED",
 }
+
+
+INTERNAL_PO_PREFIX = "NOPO-"
+
+
+def is_internal_po_number(po_number: str | None) -> bool:
+    """PO 미발행 건에 발급한 내부 관리번호인지."""
+    return bool(po_number) and po_number.upper().startswith(INTERNAL_PO_PREFIX)
+
+
+async def _generate_internal_po_number(db: AsyncSession) -> str:
+    """
+    PO 미발행 건의 내부 관리번호 NOPO-YYMMDD-NN 을 발급한다.
+    po_number 의 DB 유니크 인덱스는 소프트 삭제된 행도 포함하므로 삭제 건까지 보고 번호를 정한다.
+    """
+    prefix = f"{INTERNAL_PO_PREFIX}{datetime.now():%y%m%d}-"
+    result = await db.execute(
+        select(models.Project.po_number).where(models.Project.po_number.like(f"{prefix}%"))
+    )
+    used = set(result.scalars().all())
+    seq = 1
+    while f"{prefix}{seq:02d}" in used:
+        seq += 1
+    return f"{prefix}{seq:02d}"
 
 
 async def _project_ids_with_po(db: AsyncSession, project_ids: list[int]) -> set[int]:
@@ -134,16 +159,28 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """신규 프로젝트 등록 (PO 번호 중복 조회)"""
-    po_check = await db.execute(select(models.Project).where(
-        models.Project.po_number == obj_in.po_number,
-        models.Project.is_deleted == False
-    ))
-    if po_check.scalars().first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 존재하는 PO 번호입니다."
-        )
+    """
+    신규 프로젝트 등록 (PO 번호 중복 조회)
+    PO 미발행 건은 PO 번호 없이 등록하고 내부 관리번호(NOPO-YYMMDD-NN)를 발급한다.
+    """
+    po_number = (obj_in.po_number or "").strip()
+    if obj_in.po_pending or not po_number:
+        if not obj_in.po_pending:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PO 번호를 입력하거나 'PO 미발행'을 선택해 주세요.",
+            )
+        po_number = await _generate_internal_po_number(db)
+    else:
+        po_check = await db.execute(select(models.Project).where(
+            models.Project.po_number == po_number,
+            models.Project.is_deleted == False
+        ))
+        if po_check.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 존재하는 PO 번호입니다."
+            )
         
     # 고객사 유효성 검사
     cust = await crud.customer.get(db, id=obj_in.customer_id)
@@ -153,7 +190,13 @@ async def create_project(
             detail="유효하지 않은 고객사 ID입니다."
         )
         
-    new_project = await crud.project.create(db, obj_in=obj_in)
+    # po_pending 은 모델 컬럼이 아니므로 제외하고, 확정된 PO(또는 내부) 번호로 만든다
+    create_data = obj_in.model_dump(exclude={"po_pending"})
+    create_data["po_number"] = po_number
+    new_project = models.Project(**create_data)
+    db.add(new_project)
+    await db.commit()
+    await db.refresh(new_project)
     await log_action(
         db,
         user_id=current_user.id,
@@ -246,10 +289,31 @@ async def update_project(
     # 완료 처리는 체크리스트를 모두 통과해야 한다.
     # (등록·진행중 단계에서는 막지 않는다. 이미 완료된 건의 재저장도 다시 검사하지 않는다)
     is_completing = sync_target_status == "COMPLETED" and project.status != "COMPLETED"
+    stamped_exemptions = None
     if is_completing:
         checklist = obj_in.completion_checklist if obj_in.completion_checklist is not None else project.completion_checklist
-        auto_checks = await run_auto_checks(db, project)
+        try:
+            requested = validate_exemptions(obj_in.completion_exemptions)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        # 누가 언제 왜 예외 처리했는지 함께 남긴다
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        stamped_exemptions = {
+            key: {
+                "reason": reason,
+                "by_id": current_user.id,
+                "by_name": current_user.name or current_user.email,
+                "at": now_iso,
+            }
+            for key, reason in requested.items()
+        }
+        auto_checks = await run_auto_checks(db, project, stamped_exemptions)
         manual_items = evaluate_manual(checklist)
+        # 실제로 통과한 항목에 붙은 예외는 기록하지 않는다 (예외가 필요 없었으므로)
+        stamped_exemptions = {
+            c["key"]: stamped_exemptions[c["key"]]
+            for c in auto_checks if c["exempted"] and c["key"] in stamped_exemptions
+        } or None
         reasons = blocking_reasons(auto_checks, manual_items)
         if reasons:
             raise HTTPException(
@@ -257,11 +321,15 @@ async def update_project(
                 detail="완료 처리 조건을 충족하지 않았습니다: " + ", ".join(reasons),
             )
 
-    updated = await crud.project.update(db, db_obj=project, obj_in=obj_in)
+    updated = await crud.project.update(
+        db, db_obj=project,
+        obj_in=obj_in.model_dump(exclude_unset=True, exclude={"completion_exemptions"}),
+    )
 
     if is_completing:
         updated.completed_at = datetime.now()
         updated.completed_by = current_user.id
+        updated.completion_exemptions = stamped_exemptions
         db.add(updated)
         await db.commit()
 
@@ -274,7 +342,9 @@ async def update_project(
         if synced_count:
             await db.commit()
 
-    after_state = obj_in.model_dump(exclude_unset=True, mode="json")
+    after_state = obj_in.model_dump(exclude_unset=True, exclude={"completion_exemptions"}, mode="json")
+    if stamped_exemptions:
+        after_state["completion_exemptions"] = {k: v["reason"] for k, v in stamped_exemptions.items()}
     if synced_count:
         after_state["synced_servers"] = synced_count
     await log_action(
@@ -300,7 +370,7 @@ async def get_completion_check(
     if not project:
         raise HTTPException(status_code=404, detail="해당 프로젝트를 찾을 수 없습니다.")
 
-    auto_checks = await run_auto_checks(db, project)
+    auto_checks = await run_auto_checks(db, project, project.completion_exemptions)
     manual_items = evaluate_manual(project.completion_checklist)
     return ResponseEnvelope(data={
         "auto_checks": auto_checks,

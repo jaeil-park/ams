@@ -49,17 +49,27 @@
         </div>
       </div>
 
-      <!-- PO 미첨부 경고 -->
+      <!-- 발주 근거 문서 미첨부 경고 (해당 없음으로 예외 처리된 건은 표시하지 않음) -->
       <div
-        v-if="project.has_po === false"
+        v-if="project.has_po === false && !project.completion_exemptions?.PO_ATTACHED"
         class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3"
       >
         <svg class="h-4 w-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         <div>
-          <p class="font-bold text-amber-800">PO 문서가 첨부되지 않았습니다</p>
-          <p class="text-amber-700 mt-0.5">PO는 필수 첨부 문서입니다. 첨부하지 않으면 이 프로젝트를 <strong>완료 처리할 수 없습니다.</strong></p>
+          <p class="font-bold text-amber-800">
+            {{ isInternalPo ? 'PO 미발행 건입니다' : '발주 근거 문서가 첨부되지 않았습니다' }}
+          </p>
+          <p class="text-amber-700 mt-0.5">
+            <template v-if="isInternalPo">
+              PO를 받으면 첨부 구분 <strong>PO·발주서</strong>로 올려주세요. Ariba PO(.htm)면 PO 번호가 실제 번호로 자동 정정됩니다.
+              발주 문서가 끝내 없는 건은 완료 처리 시 <strong>해당 없음</strong>으로 사유를 남기면 됩니다.
+            </template>
+            <template v-else>
+              PO·발주서·계약서 중 하나를 첨부해 주세요. 발주 문서가 없는 건은 완료 처리 시 <strong>해당 없음</strong>으로 사유를 남기면 됩니다.
+            </template>
+          </p>
         </div>
       </div>
 
@@ -72,9 +82,9 @@
               v-model="uploadKind"
               class="text-3xs font-semibold bg-white border border-slate-300 rounded px-2 py-1 focus:outline-none"
             >
-              <option value="PO">PO</option>
+              <option value="PO">PO·발주서·계약서</option>
               <option value="QUOTE">견적서</option>
-              <option value="INSPECTION">검수확인서</option>
+              <option value="INSPECTION">검수·완료확인서</option>
               <option value="HANDOVER">인수인계서</option>
               <option value="OTHER">기타</option>
             </select>
@@ -379,6 +389,9 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const varianceNote = ref('')
 const savingNote = ref(false)
 
+// PO 미발행으로 등록해 내부 관리번호(NOPO-…)를 받은 건
+const isInternalPo = computed(() => /^NOPO-/i.test(project.value?.po_number || ''))
+
 const hasPoReference = computed(
   () => !!(project.value?.po_delivery_date || project.value?.po_amount),
 )
@@ -661,9 +674,9 @@ function isPoDoc(att: any) {
 }
 
 const KIND_LABELS: Record<string, string> = {
-  PO: 'PO',
+  PO: 'PO·발주서',
   QUOTE: '견적서',
-  INSPECTION: '검수확인서',
+  INSPECTION: '검수·완료확인서',
   HANDOVER: '인수인계서',
   OTHER: '기타',
 }

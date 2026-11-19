@@ -119,8 +119,9 @@ def find_project_folder(
         return None
 
     target = _normalize(po_number)
-    # 'POXXXXXX' 처럼 실제 번호가 없는 값으로는 검색하지 않는다 (엉뚱한 폴더에 붙는다)
-    if not target or "XXXX" in target:
+    # 'POXXXXXX' 처럼 실제 번호가 없는 값이나, PO 미발행 건의 내부 관리번호(NOPO-…)로는
+    # 검색하지 않는다 — 엉뚱한 폴더에 붙거나, 못 찾으면서 매번 수 초씩 폴더를 훑게 된다
+    if not target or "XXXX" in target or target.startswith("NOPO"):
         return None
 
     scanned = 0

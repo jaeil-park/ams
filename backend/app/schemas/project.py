@@ -26,7 +26,10 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    pass
+    # PO 미발행(선지원·하도급·구두 발주 등)이면 PO 번호 없이 등록하고 내부 관리번호를 발급한다.
+    # 나중에 PO 문서를 첨부하면 기존 병합 기능이 실제 PO 번호로 정정한다.
+    po_number: str | None = Field(None, max_length=100)
+    po_pending: bool = False
 
 
 class ProjectUpdate(BaseModel):
@@ -41,6 +44,8 @@ class ProjectUpdate(BaseModel):
     scheduled_date: date | None = None
     # 완료 처리 시 함께 전달하는 수기 확인 항목 체크 상태
     completion_checklist: dict | None = None
+    # 완료 처리 시 '해당 없음'으로 처리할 자동 검사 항목 {검사키: 사유}
+    completion_exemptions: dict[str, str] | None = None
 
     po_amount: int | None = None
     po_currency: str | None = Field(None, max_length=10)
@@ -55,6 +60,8 @@ class ProjectOut(ProjectBase):
 
     nas_path: str | None = None
     completion_checklist: dict | None = None
+    # 예외 처리 내역 {검사키: {reason, by_id, by_name, at}}
+    completion_exemptions: dict | None = None
     completed_at: datetime | None = None
     completed_by: int | None = None
 

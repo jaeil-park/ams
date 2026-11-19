@@ -38,6 +38,9 @@ class Project(Base, TimestampMixin):
 
     # 완료 처리 체크리스트 — 수기 확인 항목의 체크 상태 {"FIELD_INSTALL": true, ...}
     completion_checklist: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 자동 검사 예외 처리 내역 {검사키: {"reason", "by_id", "by_name", "at"}}
+    # 발주 문서가 없는 하도급·기술지원 건처럼 검사를 통과할 수 없는 정상 사례를 사유와 함께 기록한다.
+    completion_exemptions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
