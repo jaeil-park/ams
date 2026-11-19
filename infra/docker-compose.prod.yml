@@ -48,6 +48,11 @@ services:
       DELL_API_CLIENT_SECRET: ${DELL_API_CLIENT_SECRET:-}
       # NAS 납품문서 폴더의 컨테이너 내부 경로 (아래 volumes 와 짝을 이룸)
       DOCS_ROOT: ${DOCS_ROOT:-/mnt/docs}
+      # 승인 요청 Discord 알림 — 값은 Portainer 환경변수(.env.prod)로만 넣는다. 저장소 커밋 금지.
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_CHANNEL_ID: ${DISCORD_CHANNEL_ID:-}
     volumes:
       # 사내 납품문서 공유폴더 — 반드시 :ro (읽기 전용) 로 마운트한다.
       # AMS는 이 폴더를 조회/다운로드만 하며, 원본을 수정하거나 지우지 않는다.

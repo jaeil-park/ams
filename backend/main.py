@@ -26,6 +26,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
+# httpx 는 INFO 레벨에서 요청 URL 전체를 로그로 남긴다.
+# Discord 웹후크는 URL 자체가 비밀값이라, 그대로 두면 컨테이너 로그에 노출된다.
+for _noisy in ("httpx", "httpcore"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 

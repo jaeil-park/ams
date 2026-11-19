@@ -5,7 +5,7 @@ app/api/v1/endpoints/parts.py — 부품(파트) 재고 및 사용이력 API
 """
 
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from app import crud, models, schemas
 from app.core.deps import get_db, get_current_user, require_admin
 from app.schemas.common import ResponseEnvelope, MetaSchema
 from app.services.audit import log_action
+from app.services.notifier import notify_approval_requested
 
 router = APIRouter()
 
@@ -271,6 +272,7 @@ async def list_part_usage(
 async def create_part_usage(
     id: int,
     obj_in: schemas.part.PartUsageCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -313,12 +315,26 @@ async def create_part_usage(
     await db.commit()
     await db.refresh(approval_req)
 
+    # 관리자에게 Discord 알림 (응답 후 전송 — 실패해도 요청에는 영향 없음)
+    background_tasks.add_task(
+        notify_approval_requested,
+        approval_id=approval_req.id,
+        resource_type="PART_USAGE",
+        part_label=(f"{part.model} ({part.part_number})" if part.part_number else part.model),
+        current_qty=part.qty,
+        payload=dict(approval_req.payload or {}),
+        reason=obj_in.reason,
+        requester_name=current_user.name or current_user.email,
+        customer_name=cust.name,
+    )
+
     return ResponseEnvelope(data=approval_req)
 
 
 @router.patch("/{id}/qty", response_model=ResponseEnvelope[schemas.part.ApprovalOut], status_code=status.HTTP_202_ACCEPTED)
 async def request_part_qty_update(
     id: int,
+    background_tasks: BackgroundTasks,
     target_qty: int = Query(..., ge=0),
     reason: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -345,5 +361,17 @@ async def request_part_qty_update(
     db.add(approval_req)
     await db.commit()
     await db.refresh(approval_req)
-    
+
+    # 관리자에게 Discord 알림 (응답 후 전송 — 실패해도 요청에는 영향 없음)
+    background_tasks.add_task(
+        notify_approval_requested,
+        approval_id=approval_req.id,
+        resource_type="PART_QTY",
+        part_label=(f"{part.model} ({part.part_number})" if part.part_number else part.model),
+        current_qty=part.qty,
+        payload={"qty": target_qty},
+        reason=reason,
+        requester_name=current_user.name or current_user.email,
+    )
+
     return ResponseEnvelope(data=approval_req)

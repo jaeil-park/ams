@@ -10,8 +10,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import crud, models, schemas
 from app.core.deps import get_db, require_admin
 from app.schemas.common import ResponseEnvelope, MetaSchema
+from app.services import notifier
 
 router = APIRouter()
+
+
+@router.get("/notify-status", response_model=ResponseEnvelope[dict])
+async def get_notify_status(current_user: models.User = Depends(require_admin)):
+    """Discord 알림 설정 여부 (비밀값 자체는 내보내지 않는다)."""
+    from app.core.config import settings
+    return ResponseEnvelope(data={
+        "enabled": notifier.is_enabled(),
+        "webhook": bool(settings.DISCORD_WEBHOOK_URL),
+        "bot": bool(settings.DISCORD_BOT_TOKEN and settings.DISCORD_CHANNEL_ID),
+    })
+
+
+@router.post("/notify-test", response_model=ResponseEnvelope[dict])
+async def send_notify_test(current_user: models.User = Depends(require_admin)):
+    """Discord 알림 테스트 메시지 전송 (ADMIN 전용)."""
+    if not notifier.is_enabled():
+        raise HTTPException(
+            status_code=400,
+            detail="Discord 알림이 설정되지 않았습니다. 서버 환경변수(DISCORD_WEBHOOK_URL 또는 "
+                   "DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID)를 확인해 주세요.",
+        )
+    ok = await notifier.send_test_message(current_user.name or current_user.email)
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail="Discord 전송에 실패했습니다. 웹후크 URL이 유효한지, 봇이 해당 채널에 접근할 수 있는지 확인해 주세요.",
+        )
+    return ResponseEnvelope(data={"sent": True})
 
 # 대상 자원 이름을 붙여줄 resource_type — 이 값들의 resource_id 는 part_inventories.id 다.
 _PART_RESOURCE_TYPES = ("PART_QTY", "PART_USAGE")

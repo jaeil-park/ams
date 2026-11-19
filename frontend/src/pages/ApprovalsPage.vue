@@ -7,6 +7,25 @@
         <p class="text-xs text-slate-500 mt-0.5">파트 수량 수정 및 기타 변경 요청 처리</p>
       </div>
       <div class="flex items-center gap-3">
+        <!-- Discord 알림 상태 / 테스트 -->
+        <span
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-3xs font-bold"
+          :class="notify.enabled ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-400'"
+          :title="notify.enabled ? '승인 요청이 들어오면 Discord로 알림이 갑니다' : '서버에 Discord 알림이 설정되지 않았습니다'"
+        >
+          <span class="h-1.5 w-1.5 rounded-full" :class="notify.enabled ? 'bg-indigo-500' : 'bg-slate-300'" />
+          Discord 알림 {{ notify.enabled ? '켜짐' : '꺼짐' }}
+        </span>
+        <button
+          v-if="notify.enabled"
+          type="button"
+          class="px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          :disabled="notifyTesting"
+          @click="sendNotifyTest"
+        >
+          {{ notifyTesting ? '보내는 중...' : '알림 테스트' }}
+        </button>
+
         <!-- 상태 필터 -->
         <select
           v-model="statusFilter"
@@ -199,6 +218,33 @@ const total = ref(0)
 const totalPages = ref(1)
 const statusFilter = ref('')
 const processingId = ref<number | null>(null)
+
+// Discord 알림 상태
+const notify = ref({ enabled: false, webhook: false, bot: false })
+const notifyTesting = ref(false)
+
+async function fetchNotifyStatus() {
+  try {
+    const res = await api.get('/approvals/notify-status')
+    notify.value = res.data.data
+  } catch { /* 조용히 실패 — 배지만 '꺼짐'으로 보인다 */ }
+}
+
+async function sendNotifyTest() {
+  notifyTesting.value = true
+  try {
+    await api.post('/approvals/notify-test')
+    uiStore.addToast('테스트 알림을 보냈습니다. Discord를 확인해 주세요.', 'success')
+  } catch (error: any) {
+    uiStore.addToast(error.response?.data?.detail || '테스트 알림 전송 실패', 'error', 6000)
+  } finally {
+    notifyTesting.value = false
+  }
+}
+
+onMounted(() => {
+  fetchNotifyStatus()
+})
 
 // 반려 모달
 const rejectModalOpen = ref(false)

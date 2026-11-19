@@ -32,6 +32,17 @@ class Settings(BaseSettings):
     # ─── CORS ────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # 알림 메시지에 넣을 AMS 접속 주소 (예: http://ezenuri.synology.me:8070). 비우면 FRONTEND_URL 사용
+    APP_PUBLIC_URL: str = ""
+
+    # ─── Discord 알림 ────────────────────────────
+    # 둘 중 설정된 쪽으로 보낸다 (둘 다 설정하면 둘 다 보낸다). 비우면 알림 꺼짐.
+    # - 웹후크: 채널에만 보낼 수 있다. URL 자체가 비밀번호이므로 저장소에 절대 커밋하지 않는다.
+    # - 봇: DM 채널에도 보낼 수 있다. 봇이 그 채널(DM 상대)에 접근할 수 있어야 한다.
+    DISCORD_WEBHOOK_URL: str = ""
+    DISCORD_BOT_TOKEN: str = ""
+    DISCORD_CHANNEL_ID: str = ""
+
     # ─── Dell TechDirect API ─────────────────────
     # 키가 없으면 Dell 조회는 WAITING_EXTENSION 으로 대기하고 브라우저 확장 프로그램이 처리한다
     DELL_API_CLIENT_ID: str = ""

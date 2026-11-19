@@ -165,7 +165,7 @@
   <main>
     <header class="page-head">
       <h1>AMS ERP 사용 설명서</h1>
-      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.6.1</strong></p>
+      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.7.0</strong></p>
     </header>
 
     <section id="intro">
@@ -444,6 +444,11 @@
         <tr><td>PART_USAGE</td><td>파트 출고(사용) 등록</td><td>보유 수량 차감 + 사용 이력 기록</td></tr>
       </table>
       <p>요청 내용에는 대상 파트의 <strong>모델명과 파트넘버</strong>가 표시되므로, 어떤 부품에 대한 요청인지 바로 알 수 있습니다. (삭제된 파트의 과거 요청은 <code>(삭제된 파트)</code>로 표시됩니다.)</p>
+
+      <h3>Discord 알림</h3>
+      <p>파트 출고·재고 수량 변경 요청이 들어오면 <strong>Discord로 즉시 알림</strong>이 갑니다. 알림에는 파트명·파트넘버, 요청 수량과 처리 후 예상 재고, 고객사, PO/PR, 요청자, 사유가 담기며, 제목을 누르면 AMS 승인 관리 화면으로 이동합니다.</p>
+      <p>승인 관리 화면 우측 상단의 <strong>Discord 알림 켜짐/꺼짐</strong> 배지로 설정 상태를 확인할 수 있고, 켜져 있으면 <strong>알림 테스트</strong> 버튼으로 테스트 메시지를 보내볼 수 있습니다.</p>
+      <div class="note">알림이 실패해도 승인 요청 자체는 정상 접수됩니다. 알림은 보조 수단이므로, 대기 건수는 사이드바 <strong>승인 관리</strong> 옆 빨간 숫자로도 확인하세요.</div>
       <div class="note">상태 필터 기본값은 <strong>전체</strong>입니다. 대기 중인 건만 보려면 필터를 <code>대기 중</code>으로 바꾸세요. 출고 승인 시점에 재고를 다시 확인하므로, 승인 전에 재고가 부족해졌다면 승인이 거절됩니다.</div>
     </section>
 
