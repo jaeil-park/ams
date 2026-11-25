@@ -21,6 +21,7 @@
           <template v-else>
             Dell 건은 '확장 프로그램 대기'로 쌓입니다. Dell 지원 사이트를 연 브라우저에서
             <b>AMS Dell 워런티 조회</b> 확장 프로그램의 [대기 건 처리]를 눌러 주세요.
+            한 번 누르면 전체를 이어서 처리합니다.
             <span v-if="openDell"> (현재 대기 {{ openDell }}건)</span>
           </template>
         </p>
@@ -107,6 +108,8 @@
                   @change="toggleAll"
                 />
               </th>
+              <th class="px-2 py-3 text-right font-semibold text-slate-500 text-xs">No.</th>
+              <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">조회 일시</th>
               <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">시리얼</th>
               <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">제조사</th>
               <th class="px-4 py-3 text-left font-semibold text-slate-500 text-xs">상태</th>
@@ -121,10 +124,10 @@
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-if="!rows.length">
-              <td colspan="11" class="px-4 py-12 text-center text-slate-400">조회 이력이 없습니다. 시리얼을 입력하고 [조회]를 누르세요.</td>
+              <td colspan="13" class="px-4 py-12 text-center text-slate-400">조회 이력이 없습니다. 시리얼을 입력하고 [조회]를 누르세요.</td>
             </tr>
             <tr
-              v-for="r in rows"
+              v-for="(r, i) in rows"
               :key="r.id"
               class="hover:bg-slate-50"
               :class="selected.includes(r.id) ? 'bg-blue-50' : r.batch_id === highlightBatch ? 'bg-amber-50' : ''"
@@ -132,6 +135,10 @@
             >
               <td class="pl-4 py-2">
                 <input v-model="selected" type="checkbox" class="rounded border-slate-300" :value="r.id" />
+              </td>
+              <td class="px-2 py-2 text-right text-xs text-slate-400 tabular-nums">{{ i + 1 }}</td>
+              <td class="px-4 py-2 text-xs text-slate-500 whitespace-nowrap tabular-nums" :title="isOpen(r) ? '조회 요청 시각' : '조회 완료 시각'">
+                {{ lookupTime(r) }}
               </td>
               <td class="px-4 py-2 font-mono text-slate-700">{{ r.serial_tag }}</td>
               <td class="px-4 py-2 text-xs">{{ r.vendor }}</td>
@@ -186,6 +193,7 @@ import {
   STATUS_LABEL,
   STATUS_CLASS,
   type WarrantyLookupState,
+  type WarrantyLookupRow,
 } from '@/composables/useWarrantyLookup'
 
 const uiStore = useUiStore()
@@ -242,7 +250,7 @@ async function reloadAll() {
   }
 }
 const LAST_BATCH_KEY = 'ams.warranty.lastBatch'
-// 결과 표는 항상 전체 조회 이력(최근 100건)을 보여 주고, 마지막 요청 건만 노란색으로 강조한다
+// 결과 표는 항상 전체 조회 이력(최근 500건)을 보여 주고, 마지막 요청 건만 노란색으로 강조한다
 const highlightBatch = ref<string | null>(null)
 
 // 마지막 조회 요청 번호 — 다른 메뉴에 갔다 와도 방금 요청한 건을 강조하기 위한 브라우저 보관값
@@ -298,6 +306,16 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleString('ko-KR', { hour12: false })
 }
 
+function isOpen(r: WarrantyLookupRow) {
+  return ['PENDING', 'RUNNING', 'WAITING_EXTENSION'].includes(r.status)
+}
+
+/** 조회 일시 — 끝난 건은 결과 저장 시각, 진행 중이면 요청 시각 */
+function lookupTime(r: WarrantyLookupRow) {
+  const iso = isOpen(r) ? r.created_at : r.updated_at
+  return iso ? fmtTime(iso) : '-'
+}
+
 async function loadState() {
   try {
     state.value = await fetchLookupState()
@@ -320,9 +338,9 @@ async function submit() {
 }
 
 function downloadCsv() {
-  const head = ['시리얼', '제조사', '상태', '시작일', '종료일', 'In/Out', '지원 등급', '제품', 'AMS 반영', '비고']
-  const lines = rows.value.map((r) => [
-    r.serial_tag, r.vendor, STATUS_LABEL[r.status], r.start_date ?? '', r.end_date ?? '',
+  const head = ['No.', '조회 일시', '시리얼', '제조사', '상태', '시작일', '종료일', 'In/Out', '지원 등급', '제품', 'AMS 반영', '비고']
+  const lines = rows.value.map((r, i) => [
+    i + 1, lookupTime(r), r.serial_tag, r.vendor, STATUS_LABEL[r.status], r.start_date ?? '', r.end_date ?? '',
     warrantyInOut(r.end_date) ?? '', r.service_level ?? '', r.product_name ?? '',
     r.applied ? '반영됨' : '', r.error ?? '',
   ])

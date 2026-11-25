@@ -63,6 +63,22 @@ async def _inventory_by_serial(db: AsyncSession, serials: list[str]) -> dict[str
     return {s.serial_tag.upper(): s for s in q.scalars().all()}
 
 
+async def _existing_lookups(db: AsyncSession, serials: list[str]) -> dict[str, list[models.WarrantyLookup]]:
+    """시리얼별 기존 조회 행 (최신순, 삭제 제외)"""
+    if not serials:
+        return {}
+    q = await db.execute(
+        select(models.WarrantyLookup)
+        .where(models.WarrantyLookup.serial_tag.in_(serials),
+               models.WarrantyLookup.is_deleted == False)  # noqa: E712
+        .order_by(models.WarrantyLookup.id.desc())
+    )
+    found: dict[str, list[models.WarrantyLookup]] = {}
+    for r in q.scalars().all():
+        found.setdefault(r.serial_tag, []).append(r)
+    return found
+
+
 async def create_lookups(
     db: AsyncSession,
     serials: list[str],
@@ -71,14 +87,19 @@ async def create_lookups(
     apply_to_inventory: bool = False,
     user_id: int | None = None,
 ) -> list[models.WarrantyLookup]:
-    """시리얼 목록으로 조회 요청을 만들고, Dell API 키가 있으면 Dell 건은 바로 조회까지 끝낸다."""
+    """
+    시리얼 목록으로 조회 요청을 만들고, Dell API 키가 있으면 Dell 건은 바로 조회까지 끝낸다.
+    같은 시리얼·제조사의 기록이 이미 있으면 새 행을 만들지 않고 그 행을 다시 조회한다.
+    """
     uniq: list[str] = []
     for s in serials:
         n = normalize_serial(s)
         if n and n not in uniq:
             uniq.append(n)
     inv = await _inventory_by_serial(db, uniq)
+    existing = await _existing_lookups(db, uniq)
     batch_id = str(uuid.uuid4())
+    requested_at = datetime.now(timezone.utc)
 
     rows: list[models.WarrantyLookup] = []
     for s in uniq:
@@ -90,13 +111,35 @@ async def create_lookups(
             status = "PENDING"
         else:
             status = "ERROR"
-        row = models.WarrantyLookup(
-            batch_id=batch_id, serial_tag=s, vendor=v, status=status,
-            inventory_id=server.id if server else None,
-            apply_to_inventory=apply_to_inventory and server is not None,
-            applied=False, attempts=0, requested_by_id=user_id,
-            error="제조사를 판별할 수 없습니다. 제조사를 직접 선택해 다시 요청하세요." if v == "UNKNOWN" else None,
-        )
+        error = "제조사를 판별할 수 없습니다. 제조사를 직접 선택해 다시 요청하세요." if v == "UNKNOWN" else None
+        apply = apply_to_inventory and server is not None
+
+        # 제조사 미판별로 끝난 기록은 제조사를 지정해 다시 요청하면 이어서 쓴다
+        same = [r for r in existing.get(s, []) if r.vendor in (v, "UNKNOWN")]
+        row = same[0] if same else None
+        for dup in same[1:]:
+            dup.is_deleted = True
+            db.add(dup)
+
+        if row is None:
+            row = models.WarrantyLookup(serial_tag=s, attempts=0, applied=False)
+        # 이미 대기·조회 중이면 그 순서를 유지한다 (RUNNING 을 되돌리면 이중 조회가 된다)
+        in_progress = row.id is not None and row.vendor == v and row.status in OPEN_STATUSES
+        if in_progress:
+            apply = apply or row.apply_to_inventory
+            if v == "DELL" and dell_service.configured:
+                row.status = status
+        else:
+            row.status = status
+            row.attempts = 0
+            row.applied = False
+            row.error = error
+        row.vendor = v
+        row.batch_id = batch_id
+        row.inventory_id = server.id if server else None
+        row.apply_to_inventory = apply
+        row.requested_by_id = user_id
+        row.created_at = requested_at
         db.add(row)
         rows.append(row)
     await db.flush()
@@ -121,11 +164,13 @@ async def save_result(
 ) -> models.WarrantyLookup:
     """조회 결과를 대기열 행에 저장하고, 요청된 경우 AMS 서버 워런티에 반영한다."""
     row.status = result.get("status", "ERROR")
-    row.start_date = result.get("start_date")
-    row.end_date = result.get("end_date")
-    row.service_level = (result.get("service_level") or None) and result["service_level"][:200]
-    row.product_name = (result.get("product_name") or None) and result["product_name"][:200]
-    row.detail = result.get("detail")
+    # 재조회가 오류로 끝나면 이전에 조회해 둔 값은 지우지 않는다 (상태·비고에 오류만 표시)
+    if row.status != "ERROR":
+        row.start_date = result.get("start_date")
+        row.end_date = result.get("end_date")
+        row.service_level = (result.get("service_level") or None) and result["service_level"][:200]
+        row.product_name = (result.get("product_name") or None) and result["product_name"][:200]
+        row.detail = result.get("detail")
     row.error = (result.get("error") or None) and str(result["error"])[:500]
     row.source = source
     if row.status == "DONE" and row.apply_to_inventory and row.inventory_id:

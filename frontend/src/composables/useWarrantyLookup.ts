@@ -25,6 +25,7 @@ export interface WarrantyLookupRow {
   source: string | null
   error: string | null
   created_at: string | null
+  updated_at: string | null
 }
 
 export interface WarrantyLookupState {
@@ -65,7 +66,7 @@ export function useWarrantyLookup(pollMs = 3000) {
   const submitting = ref(false)
   const error = ref<string | null>(null)
   let timer: ReturnType<typeof setTimeout> | null = null
-  let recentLimit = 100
+  let recentLimit = 500
 
   const openCount = computed(() => rows.value.filter((r) => OPEN.includes(r.status)).length)
   const isPolling = computed(() => timer !== null)
@@ -158,7 +159,7 @@ export function useWarrantyLookup(pollMs = 3000) {
   }
 
   /** 최근 조회 이력 (요청 구분 없이 최근 limit 건) */
-  async function loadRecent(limit = 100) {
+  async function loadRecent(limit = 500) {
     stop()
     batchId.value = null
     recentLimit = limit

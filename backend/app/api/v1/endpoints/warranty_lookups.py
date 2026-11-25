@@ -136,7 +136,8 @@ async def list_lookups(
     else:
         if serial:
             q = q.where(models.WarrantyLookup.serial_tag.ilike(f"%{serial.strip()}%"))
-        q = q.order_by(models.WarrantyLookup.id.desc()).limit(limit)
+        # created_at = 마지막 조회 요청 시각 (재조회하면 갱신된다)
+        q = q.order_by(models.WarrantyLookup.created_at.desc(), models.WarrantyLookup.id.desc()).limit(limit)
     rows = (await db.execute(q)).scalars().all()
     return ResponseEnvelope(data=[lookup_to_dict(r) for r in rows])
 

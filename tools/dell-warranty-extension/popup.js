@@ -1,34 +1,14 @@
 /*
- * AMS Dell 워런티 조회 확장 프로그램 (Manifest V3)
- *
- * - 사용자가 버튼을 누를 때만 동작한다. (자동 반복 조회 없음)
- * - 조회는 사용자가 연 Dell 지원 사이트 탭 안에서 Dell 사이트가 쓰는 요청 그대로 실행한다.
- *   (Dell 사이트 화면에서 서비스 태그를 직접 검색하는 것과 같은 동작)
- * - AMS 비밀번호는 저장하지 않고, 로그인으로 받은 토큰만 chrome.storage.local 에 둔다.
+ * AMS Dell 워런티 조회 — 팝업 화면
+ * 조회는 background.js 가 실행한다. 이 창을 닫아도 계속 진행되고, 다시 열면 진행 상황이 보인다.
+ * AMS 비밀번호는 저장하지 않고, 로그인으로 받은 토큰만 chrome.storage.local 에 둔다.
  */
 
 const $ = (id) => document.getElementById(id)
-const DELL_HOME = 'https://www.dell.com/support/contractservices/ko-kr/'
-const DELAY_MS = 1500
-let lastResults = []
 
-// ─── 공통 ──────────────────────────────────────────────────────────────────────
-
-function log(msg, cls = '') {
-  const box = $('log')
-  if (box.textContent === '준비됨') box.textContent = ''
-  const line = document.createElement('div')
-  if (cls) line.className = cls
-  line.textContent = msg
-  box.appendChild(line)
-  box.scrollTop = box.scrollHeight
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const store = {
-  get: (keys) => chrome.storage.local.get(keys),
-  set: (obj) => chrome.storage.local.set(obj),
-  del: (keys) => chrome.storage.local.remove(keys),
+function log(text, cls = '') {
+  $('notice').className = cls
+  $('notice').textContent = text
 }
 
 function parseTags(text) {
@@ -36,65 +16,13 @@ function parseTags(text) {
   return text.split(/[\s,;]+/).map((s) => s.trim().toUpperCase()).filter((s) => s && !seen.has(s) && seen.add(s))
 }
 
-/** Dell 사이트 날짜('2월 28, 2026' / 'Feb 28, 2026' / '2026년 2월 28일') → 'YYYY-MM-DD' */
-function toIso(text) {
-  if (!text) return null
-  const pad = (n) => String(n).padStart(2, '0')
-  const mk = (y, m, d) => {
-    const dt = new Date(Date.UTC(y, m - 1, d))
-    return dt.getUTCMonth() === m - 1 ? `${y}-${pad(m)}-${pad(d)}` : null
-  }
-  let m = text.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/)
-  if (m) return mk(+m[1], +m[2], +m[3])
-  m = text.match(/(\d{1,2})\s*월\s*(\d{1,2}),\s*(\d{4})/)
-  if (m) return mk(+m[3], +m[1], +m[2])
-  m = text.match(/(\d{4})-(\d{2})-(\d{2})/)
-  if (m) return mk(+m[1], +m[2], +m[3])
-  const MON = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-  m = text.match(/([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),\s*(\d{4})/)
-  if (m && MON.includes(m[1].toLowerCase())) return mk(+m[3], MON.indexOf(m[1].toLowerCase()) + 1, +m[2])
-  return null
-}
-
-// ─── AMS API ───────────────────────────────────────────────────────────────────
-
-async function amsBase() {
-  const { amsUrl } = await store.get('amsUrl')
-  if (!amsUrl) throw new Error('AMS 주소를 입력하고 로그인하세요.')
-  return amsUrl.replace(/\/+$/, '')
-}
-
-async function amsFetch(path, opts = {}, retry = true) {
-  const base = await amsBase()
-  const { accessToken, refreshToken } = await store.get(['accessToken', 'refreshToken'])
-  const res = await fetch(`${base}/api/v1${path}`, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}`, ...(opts.headers || {}) },
-  })
-  if (res.status === 401 && retry && refreshToken) {
-    const r = await fetch(`${base}/api/v1/auth/refresh`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-    if (r.ok) {
-      const body = await r.json()
-      await store.set({ accessToken: body.access_token })
-      return amsFetch(path, opts, false)
-    }
-    throw new Error('AMS 로그인이 만료되었습니다. 다시 로그인하세요.')
-  }
-  if (!res.ok) {
-    let detail = res.statusText
-    try { detail = (await res.json()).detail || detail } catch { /* 본문 없음 */ }
-    throw new Error(`AMS ${res.status}: ${detail}`)
-  }
-  return res.json()
-}
-
 async function login() {
   const url = $('ams-url').value.trim().replace(/\/+$/, '')
   const email = $('ams-email').value.trim()
   const pw = $('ams-pw').value
   if (!url || !email || !pw) return log('AMS 주소, 이메일, 비밀번호를 모두 입력하세요.', 'err')
+  // 권한 창이 뜨면 팝업이 닫힐 수 있으므로 주소·이메일을 먼저 저장한다
+  await store.set({ amsUrl: url, amsEmail: email })
   // AMS 주소에 대한 접근 권한 요청 (확장 프로그램 설치 시 모든 사이트 권한을 받지 않기 위해)
   const origin = new URL(url).origin + '/*'
   const granted = await chrome.permissions.request({ origins: [origin] })
@@ -125,155 +53,59 @@ async function showLoginState() {
   $('login-state').textContent = accessToken ? `연결됨 (${amsEmail})` : '로그인 필요'
 }
 
-// ─── Dell 사이트 조회 ──────────────────────────────────────────────────────────
+// ─── 진행 상황 ─────────────────────────────────────────────────────────────────
 
-/** Dell 지원 사이트 탭을 찾거나 새로 연다. */
-async function dellTab() {
-  const tabs = await chrome.tabs.query({ url: 'https://www.dell.com/support/*' })
-  if (tabs.length) return tabs[0].id
-  const tab = await chrome.tabs.create({ url: DELL_HOME, active: false })
-  await new Promise((resolve) => {
-    const fn = (id, info) => {
-      if (id === tab.id && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(fn)
-        resolve()
-      }
-    }
-    chrome.tabs.onUpdated.addListener(fn)
-  })
-  await sleep(2000)
-  return tab.id
+function renderJob(job) {
+  const run = !!job?.running
+  $('btn-pending').disabled = run
+  $('btn-direct').disabled = run
+  $('btn-stop').disabled = !run
+  if (!job) return
+  $('progress').textContent = `${run ? '처리 중' : job.aborted ? '중단됨' : '완료'} ${job.done}/${job.total}건 (성공 ${job.ok})`
+  const box = $('log')
+  box.replaceChildren(...job.log.map(({ text, cls }) => {
+    const line = document.createElement('div')
+    if (cls) line.className = cls
+    line.textContent = text
+    return line
+  }))
+  box.scrollTop = box.scrollHeight
 }
 
-/** Dell 탭 안에서 실행 — Dell 사이트의 '지원 서비스 상태 확인'과 같은 요청 */
-async function lookupInDellPage(tag) {
-  try {
-    const encRes = await fetch(`/support/components/detectproduct/encvalue/${encodeURIComponent(tag)}?appname=warranty`, { credentials: 'include' })
-    if (!encRes.ok) return { ok: false, http: encRes.status }
-    const enc = (await encRes.text()).trim()
-    const r = await fetch('/support/contractservices/ko-kr/entitlement/contractservicesapi/v1', {
-      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetFormat: 'servicetag', assetId: enc, appName: 'home' }),
-    })
-    if (!r.ok) return { ok: false, http: r.status }
-    const data = await r.json()
-    // 모델명: 응답의 제품 지원 페이지(ipsOverviewUrl) 제목에서 가져온다. 실패해도 워런티 결과는 그대로 쓴다.
-    let title = null
-    if (data && data.ipsOverviewUrl) {
-      try {
-        const page = await fetch(data.ipsOverviewUrl, { credentials: 'include' })
-        if (page.ok) {
-          const m = (await page.text()).match(/<title[^>]*>([^<]+)<\/title>/i)
-          title = m ? m[1].trim() : null
-        }
-      } catch {
-        title = null
-      }
-    }
-    return { ok: true, data, title }
-  } catch (e) {
-    return { ok: false, error: String(e) }
-  }
-}
-
-/** 'PowerEdge R760xs Rack Server에 대한 지원 | 개요 | Dell 대한민국' / 'Support for PowerEdge R760 | Overview | Dell US' → 모델명 */
-function productFromTitle(title) {
-  if (!title) return null
-  let s = title.split('|')[0].trim()
-  s = s.replace(/에 대한 지원$/, '').replace(/^Support for\s+/i, '').trim()
-  return s || null
-}
-
-async function lookupTag(tabId, tag) {
-  const [{ result }] = await chrome.scripting.executeScript({
-    target: { tabId }, world: 'MAIN', func: lookupInDellPage, args: [tag],
-  })
-  if (!result || !result.ok) {
-    const why = result?.http ? `Dell 사이트 응답 ${result.http}` : result?.error || '알 수 없는 오류'
-    return { status: 'ERROR', error: `${why} — Dell 탭을 새로고침한 뒤 다시 시도하세요.` }
-  }
-  const d = result.data || {}
-  const start = toIso(d.warrantyStartDate)
-  const end = toIso(d.warrantyEndDate)
-  const product = productFromTitle(result.title)
-  if (!end) {
-    return {
-      status: 'NOT_FOUND', product_name: product,
-      error: d.warrantyResponseErrorMessage || d.supportServicesHeading || '워런티 정보 없음',
-    }
-  }
-  return {
-    status: 'DONE', start_date: start, end_date: end,
-    service_level: d.warrantyDisplayName || null,
-    product_name: product,
-    detail: { on_support: d.onSupport, raw_start: d.warrantyStartDate, raw_end: d.warrantyEndDate },
-  }
-}
-
-// ─── 버튼 동작 ─────────────────────────────────────────────────────────────────
-
-async function processPending() {
-  $('btn-pending').disabled = true
-  try {
-    const { data: items } = await amsFetch('/warranty-lookups/pending-dell?limit=50')
-    if (!items.length) return log('처리할 Dell 대기 건이 없습니다.', 'ok')
-    log(`Dell 대기 ${items.length}건 처리 시작`)
-    const tabId = await dellTab()
-    let ok = 0
-    for (const it of items) {
-      const r = await lookupTag(tabId, it.serial_tag)
-      try {
-        await amsFetch(`/warranty-lookups/${it.id}/result`, { method: 'POST', body: JSON.stringify(r) })
-        if (r.status === 'DONE') ok++
-        log(`${it.serial_tag}: ${r.status === 'DONE' ? `${r.start_date} ~ ${r.end_date} (${r.service_level || ''}) ${r.product_name || ''}` : r.error}`,
-          r.status === 'DONE' ? 'ok' : 'err')
-      } catch (e) {
-        log(`${it.serial_tag}: AMS 저장 실패 — ${e.message}`, 'err')
-      }
-      await sleep(DELAY_MS)
-    }
-    log(`완료: ${ok}/${items.length}건 저장`, 'ok')
-  } catch (e) {
-    log(e.message, 'err')
-  } finally {
-    $('btn-pending').disabled = false
-  }
+async function start(type, tags) {
+  log('')
+  const res = await chrome.runtime.sendMessage({ cmd: 'start', type, tags })
+  if (!res?.ok) log(res?.error || '시작하지 못했습니다.', 'err')
 }
 
 async function directLookup() {
   const tags = parseTags($('tags').value)
   if (!tags.length) return log('서비스 태그를 입력하세요.', 'err')
-  $('btn-direct').disabled = true
-  lastResults = []
-  try {
-    const tabId = await dellTab()
-    for (const t of tags) {
-      const r = await lookupTag(tabId, t)
-      lastResults.push({ tag: t, ...r })
-      log(`${t}: ${r.status === 'DONE' ? `${r.start_date} ~ ${r.end_date} (${r.service_level || ''}) ${r.product_name || ''}` : r.error}`,
-        r.status === 'DONE' ? 'ok' : 'err')
-      await sleep(DELAY_MS)
-    }
-  } catch (e) {
-    log(e.message, 'err')
-  } finally {
-    $('btn-direct').disabled = false
-  }
+  await start('direct', tags)
 }
 
 async function copyResults() {
-  if (!lastResults.length) return log('복사할 직접 조회 결과가 없습니다.', 'err')
-  const lines = [['서비스태그', '상태', '시작일', '종료일', '지원등급', '모델', '비고'].join('\t')]
-  for (const r of lastResults) {
-    lines.push([r.tag, r.status, r.start_date || '', r.end_date || '', r.service_level || '', r.product_name || '', r.error || ''].join('\t'))
-  }
+  const { job } = await store.get('job')
+  const results = job?.type === 'direct' ? job.results : []
+  if (!results.length) return log('복사할 직접 조회 결과가 없습니다.', 'err')
+  const lines = [['No.', '서비스태그', '상태', '시작일', '종료일', '지원등급', '모델', '비고'].join('\t')]
+  results.forEach((r, i) => {
+    lines.push([i + 1, r.tag, r.status, r.start_date || '', r.end_date || '', r.service_level || '', r.product_name || '', r.error || ''].join('\t'))
+  })
   await navigator.clipboard.writeText(lines.join('\n'))
   log('결과를 복사했습니다. 엑셀에 붙여넣으세요.', 'ok')
 }
 
-$('btn-login').addEventListener('click', () => login().catch((e) => log(e.message, 'err')))
-$('btn-logout').addEventListener('click', logout)
-$('btn-pending').addEventListener('click', processPending)
-$('btn-direct').addEventListener('click', directLookup)
-$('btn-copy').addEventListener('click', copyResults)
+const guard = (fn) => () => fn().catch((e) => log(e.message, 'err'))
+$('btn-login').addEventListener('click', guard(login))
+$('btn-logout').addEventListener('click', guard(logout))
+$('btn-pending').addEventListener('click', guard(() => start('pending')))
+$('btn-stop').addEventListener('click', guard(async () => {
+  await chrome.runtime.sendMessage({ cmd: 'stop' })
+  log('현재 건을 마치고 중지합니다.')
+}))
+$('btn-direct').addEventListener('click', guard(directLookup))
+$('btn-copy').addEventListener('click', guard(copyResults))
+chrome.storage.onChanged.addListener((c) => { if (c.job) renderJob(c.job.newValue) })
 showLoginState()
+store.get('job').then(({ job }) => renderJob(job))
