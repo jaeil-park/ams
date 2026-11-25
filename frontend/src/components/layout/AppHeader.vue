@@ -297,6 +297,7 @@ const currentPageLabel = computed(() => {
     parts: '파트재고',
     deliveries: '납품이력',
     'part-history': '파트이력',
+    warranty: '워런티 조회',
     addresses: '납품주소',
     approvals: '승인 관리',
     users: '사용자 관리',

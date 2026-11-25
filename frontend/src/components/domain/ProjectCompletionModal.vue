@@ -199,7 +199,7 @@ async function submitCompletion() {
     const exemptions: Record<string, string> = {}
     for (const c of autoChecks.value) {
       if (!c.passed && c.exemptable && exemptOn.value[c.key] && reasonValid(c.key)) {
-        exemptions[c.key] = exemptReason.value[c.key].trim()
+        exemptions[c.key] = (exemptReason.value[c.key] || '').trim()
       }
     }
     await api.patch(`/projects/${props.project.id}`, {
