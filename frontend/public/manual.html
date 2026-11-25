@@ -151,6 +151,7 @@
     <a href="#customers">고객사 관리</a>
     <a href="#projects">프로젝트 관리</a>
     <a href="#inventory">납품목록 (서버)</a>
+    <a href="#warranty-dell">Dell 워런티 조회</a>
     <a href="#parts">파트재고</a>
     <a href="#deliveries">납품이력</a>
     <a href="#part-history">파트이력</a>
@@ -397,6 +398,49 @@
 
       <h3>워런티(보증기간)</h3>
       <p>목록에서 시리얼태그를 클릭하면 상세 화면이 열리며, 여기서 보증 시작일/종료일을 직접 입력해 저장합니다. 아직 입력하지 않은 장비는 <strong>보증 정보 없음</strong>으로 표시되며, 이는 오류가 아닙니다.</p>
+    </section>
+
+    <section id="warranty-dell">
+      <h2>Dell 워런티 조회 (확장 프로그램)</h2>
+      <p class="desc">Edge/Chrome 확장 프로그램으로 Dell 보증기간을 조회해 AMS에 저장</p>
+
+      <h3>1. 설치 (PC마다 최초 1회)</h3>
+      <ol>
+        <li>확장 프로그램 폴더 <code>dell-warranty-extension</code>을 PC에 복사합니다. 설치 후에도 <strong>폴더를 지우거나 옮기지 마세요.</strong></li>
+        <li>주소창에 <code>edge://extensions</code> (Chrome은 <code>chrome://extensions</code>)를 입력합니다.</li>
+        <li><strong>개발자 모드</strong>를 켭니다.</li>
+        <li><strong>압축 풀린 확장 로드</strong>(Chrome: 압축해제된 확장 프로그램 로드)를 누르고 위 폴더를 선택합니다.</li>
+        <li>툴바의 퍼즐 아이콘에서 <strong>AMS Dell 워런티 조회</strong>를 고정합니다.</li>
+      </ol>
+
+      <h3>2. AMS 로그인 (최초 1회)</h3>
+      <ol>
+        <li>확장 프로그램 아이콘을 누르고 AMS 주소(<code>http://192.168.0.22:8070</code>), 이메일, 비밀번호를 입력한 뒤 <strong>로그인</strong>을 누릅니다.</li>
+        <li>AMS 주소 접근 권한을 묻는 창이 뜨면 <strong>허용</strong>합니다. 이때 확장 창이 닫히면 다시 열어 로그인하세요.</li>
+        <li><strong>연결됨 (이메일)</strong>이 보이면 완료입니다. 비밀번호는 저장되지 않습니다.</li>
+      </ol>
+
+      <h3>3. 조회</h3>
+      <ol>
+        <li>AMS <strong>워런티 조회</strong> 메뉴에 서비스 태그를 붙여넣고(최대 200건) <strong>조회</strong>를 누릅니다. 서버 워런티에도 저장하려면 <strong>AMS에 등록된 서버는 워런티까지 자동 반영</strong>을 체크해 둡니다.</li>
+        <li>Dell 건이 대기로 쌓이면, 확장 프로그램에서 <strong>대기 건 처리</strong>를 누릅니다. Dell 지원 사이트 탭은 없으면 자동으로 열립니다.</li>
+        <li>로그에 <code>완료: n/n건 저장</code>이 나오면 AMS에서 결과를 확인합니다. <strong>엑셀(CSV) 다운로드</strong>도 가능합니다.</li>
+      </ol>
+      <div class="warn"><strong>처리 중에는 확장 창을 닫거나 다른 곳을 클릭하지 마세요.</strong> 창이 닫히면 처리가 중단됩니다. 남은 건은 대기 상태로 유지되므로 다시 <strong>대기 건 처리</strong>를 누르면 이어집니다.</div>
+      <div class="note">한 번에 50건까지 처리합니다. 50건이 넘으면 완료 후 한 번 더 누르세요.</div>
+
+      <h3>직접 조회 (AMS에 저장하지 않음)</h3>
+      <p>결과만 필요하면 확장 프로그램의 <strong>직접 조회</strong>에 서비스 태그를 넣고 <strong>조회</strong> → <strong>결과 복사</strong> 후 엑셀에 붙여넣습니다.</p>
+
+      <h3>문제 해결</h3>
+      <table>
+        <tr><th>증상</th><th>조치</th></tr>
+        <tr><td>Dell 사이트 응답 403</td><td>Dell 탭을 새로고침하거나 Dell 사이트에서 직접 한 번 검색한 뒤, AMS 결과의 <strong>다시 조회</strong> → <strong>대기 건 처리</strong></td></tr>
+        <tr><td>AMS 로그인이 만료되었습니다</td><td>확장 프로그램에서 다시 로그인</td></tr>
+        <tr><td>처리할 Dell 대기 건이 없습니다</td><td>AMS 워런티 조회에서 먼저 조회를 요청했는지, 제조사가 Dell인지 확인</td></tr>
+        <tr><td>워런티 정보 없음</td><td>서비스 태그 오타 확인</td></tr>
+        <tr><td>날짜가 예상과 다름</td><td>시작일은 Dell의 현재 지원 계약 시작일이라 출하일과 며칠 다를 수 있습니다.</td></tr>
+      </table>
     </section>
 
     <section id="parts">
