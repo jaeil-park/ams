@@ -346,3 +346,5 @@
 - [ ] 🚫 Dell TechDirect API 키 발급 후 실응답 검증 (대표님 서명 대기 중)
 - [ ] HPE 조회 전용 계정으로 `worker.try_hpe_lookup` 실조회 확인 후 운영 배포
 - [ ] 운영 배포: VERSION 올림 → main 푸시 → Portainer 재배포(warranty-worker 포함) → `alembic upgrade head`
+- [x] 이력 검색 서버 연동용 읽기 API `/api/v1/integrations/warranties` (연동 토큰, 테스트 포함) (2026-11-25)
+- [ ] 운영 배포: `INTEGRATION_TOKEN` 설정 후 검색 서버 장비 대장에서 확인

@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     WARRANTY_LOOKUP_MAX: int = 200          # 한 번에 요청할 수 있는 최대 시리얼 수
     WARRANTY_WORKER_STALE_SEC: int = 180    # 작업자 응답이 이 시간 이상 없으면 '중지'로 표시
 
+    # ─── 사내 시스템 연동 (읽기 전용 /api/v1/integrations) ───
+    # 이력 검색 서버와 같은 값을 넣는다. 32자 이상, 비우면 연동 API 꺼짐 (.env 커밋 금지)
+    INTEGRATION_TOKEN: str = ""
+
     # ─── HPE 자동 조회 (warranty-worker 컨테이너 전용) ───
     # 조회 전용 HPE 계정. 서버 환경변수로만 넣는다 (.env 커밋 금지)
     HPE_USERNAME: str = ""

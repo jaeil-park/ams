@@ -46,6 +46,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://192.168.0.22}
       DELL_API_CLIENT_ID: ${DELL_API_CLIENT_ID:-}
       DELL_API_CLIENT_SECRET: ${DELL_API_CLIENT_SECRET:-}
+      # 이력 검색 서버 연동 토큰 (32자 이상, 비우면 연동 API 꺼짐) — 값은 Portainer 환경변수로만 넣는다
+      INTEGRATION_TOKEN: ${INTEGRATION_TOKEN:-}
       # NAS 납품문서 폴더의 컨테이너 내부 경로 (아래 volumes 와 짝을 이룸)
       DOCS_ROOT: ${DOCS_ROOT:-/mnt/docs}
       # 승인 요청 Discord 알림 — 값은 Portainer 환경변수(.env.prod)로만 넣는다. 저장소 커밋 금지.
