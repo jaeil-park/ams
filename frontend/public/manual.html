@@ -166,7 +166,7 @@
   <main>
     <header class="page-head">
       <h1>AMS ERP 사용 설명서</h1>
-      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v1.9.0</strong></p>
+      <p>이제누리 IT 자산 관리 시스템(AMS: Asset Management System) 이용 가이드입니다. <strong>기준 버전 v2.0.0</strong></p>
     </header>
 
     <section id="intro">
@@ -258,7 +258,7 @@
 
       <h4 style="font-size:13px;margin:14px 0 6px;">PO 미발행 건 등록</h4>
       <p>선지원 후 PO 발행, 하도급, 구두 발주처럼 <strong>PO 번호가 없는 건</strong>은 등록 화면에서 <strong>PO 미발행</strong>을 체크하세요. 내부 관리번호(<code>NOPO-261119-01</code> 형식)가 자동으로 발급되고, 목록에 회색 <strong>PO 미발행</strong> 표시가 붙습니다.</p>
-      <p>나중에 PO를 받아 첨부하면 <strong>실제 PO 번호로 자동 정정</strong>됩니다(Ariba <code>.htm</code>인 경우). 단, 이미 실제 PO 번호가 등록된 프로젝트에 번호가 다른 PO를 올리면 다른 건의 문서일 가능성이 있어 바꾸지 않고 경고만 띄웁니다.</p>
+      <p>나중에 PO를 받아 첨부하면 <strong>실제 PO 번호로 자동 정정</strong>됩니다(Ariba <code>.htm</code>인 경우). 이때 임시번호로 등록했던 <strong>파트 출고 기록과 승인 대기 요청도 실제 PO 번호로 함께 옮겨집니다.</strong> 프로젝트 수정 화면에서 PO 번호를 직접 고쳐도 마찬가지입니다. 단, 이미 실제 PO 번호가 등록된 프로젝트에 번호가 다른 PO를 올리면 다른 건의 문서일 가능성이 있어 바꾸지 않고 경고만 띄웁니다.</p>
       <div class="note">이전처럼 <code>POXXXXXX</code>로 등록하면 PO 번호 중복으로 두 번째 건부터 등록이 막힙니다. PO가 없을 때는 반드시 <strong>PO 미발행</strong>을 사용하세요.</div>
 
       <h4 style="font-size:13px;margin:14px 0 6px;">PO 내용 자동 읽기</h4>
@@ -459,6 +459,16 @@
       </table>
       <div class="warn">두 작업 모두 <strong>즉시 반영되지 않습니다.</strong> 승인 요청이 접수되어 <strong>승인 관리</strong>에 대기 건으로 쌓이고, ADMIN이 승인해야 실제 재고에 반영됩니다.</div>
       <p><strong>PO/PR 번호</strong>는 파트 단품 납품이나 per-call 건을 구분하기 위한 항목으로, 사용등록 화면에서 프로젝트명 또는 PO 번호 일부를 입력하면 자동완성으로 검색됩니다. 선택하면 고객사가 자동으로 채워집니다.</p>
+
+      <h3>PO 없이 먼저 불출하기</h3>
+      <p>PO 프로젝트가 아직 등록되지 않았어도 <strong>받을 PO 번호를 그대로 적어 먼저 불출</strong>할 수 있습니다. 자동완성에 "일치하는 PO 프로젝트가 아직 없습니다"가 떠도 그대로 <strong>출고 등록</strong>을 누르면 됩니다.</p>
+      <ul>
+        <li>나중에 <strong>같은 PO 번호의 프로젝트</strong>가 등록되면 따로 매칭하지 않아도 자동으로 연결됩니다.</li>
+        <li>대소문자와 띄어쓰기는 달라도 같은 PO로 봅니다. (<code>po403813</code>, <code>PO 403813</code> → <code>PO403813</code>)</li>
+        <li>연결된 출고는 프로젝트 목록의 펼침 화면과 PO 상세 창의 <strong>이 PO로 출고된 파트</strong>에 승인 대기 / 출고 완료로 표시되고, 완료 체크리스트의 납품 품목 수에도 들어갑니다.</li>
+        <li>PO 미발행 프로젝트(<code>NOPO-…</code>)를 골라 불출했다면, 나중에 실제 PO 번호로 바뀔 때 출고 기록도 함께 옮겨집니다.</li>
+      </ul>
+      <div class="warn">번호 자체를 잘못 적으면(숫자 오타 등) 자동으로 연결되지 않습니다. 불출 전에 PO 번호를 한 번 더 확인하세요.</div>
 
       <h3>히스토리 및 사용현황</h3>
       <p>모델명을 클릭하면 해당 파트의 이력 화면이 열립니다. 현재 보유 수량, 보증 상태, <strong>비고에 적어둔 특이사항</strong>과 함께, 사용일자·수량·납품 위치·사유가 담긴 출고 이력을 확인할 수 있습니다.</p>

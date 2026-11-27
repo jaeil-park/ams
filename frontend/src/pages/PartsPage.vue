@@ -214,7 +214,8 @@
               <div class="text-3xs text-slate-400">{{ p.name }} · {{ getProjectCustomerName(p.customer_id) }}</div>
             </li>
             <li v-if="poSearchResults.length === 0" class="px-3 py-2 text-slate-400">
-              일치하는 PO가 없습니다. 직접 입력해 Percall로 등록하세요.
+              일치하는 PO 프로젝트가 아직 없습니다. 이 번호 그대로 등록하면 나중에 같은 PO의 프로젝트가 등록될 때 자동으로 연결됩니다.
+              (대소문자·띄어쓰기는 달라도 됩니다)
             </li>
           </ul>
         </div>

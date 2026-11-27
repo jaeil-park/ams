@@ -11,6 +11,7 @@ from app import crud, models, schemas
 from app.core.deps import get_db, require_admin
 from app.schemas.common import ResponseEnvelope, MetaSchema
 from app.services import notifier
+from app.services.po_link import normalize_po
 
 router = APIRouter()
 
@@ -187,7 +188,7 @@ async def approve_request(
             location=payload.get("location"),
             reason=payload.get("reason"),
             qty=usage_qty,
-            po_number=payload.get("po_number"),
+            po_number=normalize_po(payload.get("po_number")),
         )
         db.add(new_usage)
 

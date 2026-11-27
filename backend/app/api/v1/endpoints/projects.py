@@ -15,6 +15,7 @@ from app.core.deps import get_db, get_current_user
 from app.schemas.common import ResponseEnvelope, MetaSchema
 from app.services import nas_docs
 from app.services.audit import log_action
+from app.services.po_link import pending_usage_approvals, relink_po, usage_po_filter
 from app.services.completion_check import (
     blocking_reasons,
     evaluate_manual,
@@ -281,6 +282,7 @@ async def update_project(
             )
             
     before_state = {"name": project.name, "status": project.status}
+    old_po = project.po_number
     # 상태 값이 함께 전달되면 '바뀌었는지'와 무관하게 연동을 수행한다.
     # 전환 시점에만 돌리면, 기능 추가 이전에 이미 완료 처리된 프로젝트나
     # 완료 후에 추가된 서버가 영영 동기화되지 않는다 (멱등하게 맞추는 것이 안전하다).
@@ -326,6 +328,12 @@ async def update_project(
         obj_in=obj_in.model_dump(exclude_unset=True, exclude={"completion_exemptions"}),
     )
 
+    # PO 번호를 고치면 옛 번호로 연결돼 있던 파트 출고·승인 대기 건도 새 번호로 옮긴다
+    relinked = None
+    if obj_in.po_number is not None and updated.po_number != old_po:
+        relinked = await relink_po(db, old_po, updated.po_number)
+        await db.commit()
+
     if is_completing:
         updated.completed_at = datetime.now()
         updated.completed_by = current_user.id
@@ -347,6 +355,8 @@ async def update_project(
         after_state["completion_exemptions"] = {k: v["reason"] for k, v in stamped_exemptions.items()}
     if synced_count:
         after_state["synced_servers"] = synced_count
+    if relinked and (relinked["usages"] or relinked["pending"]):
+        after_state["relinked_part_usages"] = relinked
     await log_action(
         db,
         user_id=current_user.id,
@@ -357,6 +367,67 @@ async def update_project(
         after=after_state,
     )
     return ResponseEnvelope(data=updated)
+
+
+@router.get("/{id}/part-usages", response_model=ResponseEnvelope[dict])
+async def list_project_part_usages(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    이 프로젝트의 PO 번호로 연결된 파트 출고 (승인 완료 + 승인 대기).
+    PO 없이 수기 번호로 먼저 불출한 건도 같은 번호의 프로젝트가 생기면 여기에 나타난다.
+    """
+    project = await crud.project.get(db, id=id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="해당 프로젝트를 찾을 수 없습니다.")
+
+    usages: list[dict] = []
+    pending: list[dict] = []
+    po_filter = usage_po_filter(project.po_number)
+    if po_filter is not None:
+        rows = (await db.execute(
+            select(models.PartUsage, models.PartInventory, models.Customer.name)
+            .join(models.PartInventory, models.PartInventory.id == models.PartUsage.part_id)
+            .outerjoin(models.Customer, models.Customer.id == models.PartUsage.customer_id)
+            .where(po_filter)
+            .order_by(models.PartUsage.used_date.desc(), models.PartUsage.id.desc())
+        )).all()
+        usages = [
+            {
+                "id": u.id, "part_id": p.id, "part_model": p.model, "part_number": p.part_number,
+                "qty": u.qty, "used_date": u.used_date.isoformat(), "customer_name": cname,
+                "location": u.location, "reason": u.reason, "po_number": u.po_number,
+            }
+            for u, p, cname in rows
+        ]
+
+        approvals = await pending_usage_approvals(db, project.po_number)
+        part_ids = {a.resource_id for a in approvals}
+        requester_ids = {a.requester_id for a in approvals}
+        part_names = {
+            pid: model for pid, model in (await db.execute(
+                select(models.PartInventory.id, models.PartInventory.model)
+                .where(models.PartInventory.id.in_(part_ids))
+            )).all()
+        } if part_ids else {}
+        requesters = {
+            uid: (name or email) for uid, name, email in (await db.execute(
+                select(models.User.id, models.User.name, models.User.email).where(models.User.id.in_(requester_ids))
+            )).all()
+        } if requester_ids else {}
+        pending = [
+            {
+                "approval_id": a.id, "part_id": a.resource_id, "part_model": part_names.get(a.resource_id),
+                "qty": (a.payload or {}).get("qty"), "used_date": (a.payload or {}).get("used_date"),
+                "requester_name": requesters.get(a.requester_id),
+                "requested_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in sorted(approvals, key=lambda a: a.id, reverse=True)
+        ]
+
+    return ResponseEnvelope(data={"po_number": project.po_number, "usages": usages, "pending": pending})
 
 
 @router.get("/{id}/completion-check", response_model=ResponseEnvelope[dict])

@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
+from app.services.po_link import pending_usage_approvals, usage_po_filter
 
 # 수기 확인 항목 — 담당자가 직접 체크해야 하는 현장 사실
 MANUAL_CHECK_ITEMS = [
@@ -88,14 +89,11 @@ async def run_auto_checks(
             models.PartInventory.is_deleted == False,
         )
     ) or 0
-    # 승인 완료된 파트 출고는 PO 번호로 프로젝트와 연결된다
+    # 승인 완료된 파트 출고는 PO 번호로 프로젝트와 연결된다 (표기 차이는 무시)
     usage_count = 0
-    if project.po_number:
-        usage_count = await db.scalar(
-            select(func.count(models.PartUsage.id)).where(
-                models.PartUsage.po_number == project.po_number,
-            )
-        ) or 0
+    po_filter = usage_po_filter(project.po_number)
+    if po_filter is not None:
+        usage_count = await db.scalar(select(func.count(models.PartUsage.id)).where(po_filter)) or 0
     items = []
     if server_count:
         items.append(f"서버 {server_count}대")
@@ -109,18 +107,7 @@ async def run_auto_checks(
     })
 
     # 4) 승인 대기 중인 파트 출고 없음 — 실제로 처리해야 끝나는 일이라 예외 불가
-    pending = 0
-    if project.po_number:
-        result = await db.execute(
-            select(models.Approval).where(
-                models.Approval.status == "PENDING",
-                models.Approval.resource_type == "PART_USAGE",
-            )
-        )
-        pending = sum(
-            1 for a in result.scalars().all()
-            if (a.payload or {}).get("po_number") == project.po_number
-        )
+    pending = len(await pending_usage_approvals(db, project.po_number))
     checks.append({
         "key": "NO_PENDING_APPROVALS",
         "label": "승인 대기 중인 파트 출고 없음",

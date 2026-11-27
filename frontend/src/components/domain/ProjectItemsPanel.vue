@@ -82,6 +82,62 @@
         </table>
       </div>
     </div>
+
+    <!-- Part Usage Subpanel — 이 프로젝트 PO 번호로 출고된 파트 (PO 없이 먼저 불출한 건 포함) -->
+    <div>
+      <h4 class="font-bold text-slate-700 flex items-center gap-1.5 mb-2 select-none">
+        <svg class="h-4 w-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+        </svg>
+        이 PO로 출고된 파트
+        <span v-if="usagePo" class="font-mono text-slate-400 font-normal">({{ usagePo }})</span>
+      </h4>
+      <div
+        v-if="usages.length === 0 && pendingUsages.length === 0"
+        class="text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded bg-white"
+      >
+        이 PO 번호로 출고된 파트가 없습니다.
+      </div>
+      <div v-else class="overflow-x-auto border border-slate-200 rounded bg-white">
+        <table class="min-w-full divide-y divide-slate-100">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-2 text-left font-bold text-slate-500">부품 모델명</th>
+              <th class="px-4 py-2 text-left font-bold text-slate-500">수량</th>
+              <th class="px-4 py-2 text-left font-bold text-slate-500">출고일</th>
+              <th class="px-4 py-2 text-left font-bold text-slate-500">고객사 / 위치</th>
+              <th class="px-4 py-2 text-left font-bold text-slate-500">상태</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="p in pendingUsages" :key="'p' + p.approval_id" class="bg-amber-50/60">
+              <td class="px-4 py-2 font-semibold text-violet-600 cursor-pointer" @click="goToParts(p.part_model)">
+                {{ p.part_model || '-' }}
+              </td>
+              <td class="px-4 py-2 text-slate-700 font-bold">{{ p.qty }} 개</td>
+              <td class="px-4 py-2 text-slate-500 font-mono">{{ p.used_date || '-' }}</td>
+              <td class="px-4 py-2 text-slate-500">요청: {{ p.requester_name || '-' }}</td>
+              <td class="px-4 py-2">
+                <span class="px-1.5 py-0.5 rounded text-4xs font-bold bg-amber-100 text-amber-800">승인 대기</span>
+              </td>
+            </tr>
+            <tr v-for="u in usages" :key="u.id" class="hover:bg-slate-50">
+              <td class="px-4 py-2 font-semibold text-violet-600 cursor-pointer" @click="goToParts(u.part_model)">
+                {{ u.part_model }}
+              </td>
+              <td class="px-4 py-2 text-slate-700 font-bold">{{ u.qty }} 개</td>
+              <td class="px-4 py-2 text-slate-500 font-mono">{{ u.used_date }}</td>
+              <td class="px-4 py-2 text-slate-500">
+                {{ u.customer_name || '-' }}<span v-if="u.location"> · {{ u.location }}</span>
+              </td>
+              <td class="px-4 py-2">
+                <span class="px-1.5 py-0.5 rounded text-4xs font-bold bg-emerald-100 text-emerald-800">출고 완료</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -129,6 +185,9 @@ async function lookupProjectWarranty() {
   }
 }
 const parts = ref<any[]>([])
+const usages = ref<any[]>([])
+const pendingUsages = ref<any[]>([])
+const usagePo = ref('')
 
 onMounted(() => {
   fetchLinkedItems()
@@ -144,6 +203,12 @@ async function fetchLinkedItems() {
     const partRes = await api.get(`/parts?limit=100`)
     // 이 프로젝트에 매핑된 파트 필터링
     parts.value = partRes.data.data.filter((p: any) => p.project_id === props.projectId)
+
+    // 3. 이 프로젝트 PO 번호로 출고된 파트 (승인 완료 + 승인 대기)
+    const usageRes = await api.get(`/projects/${props.projectId}/part-usages`)
+    usages.value = usageRes.data.data.usages || []
+    pendingUsages.value = usageRes.data.data.pending || []
+    usagePo.value = usageRes.data.data.po_number || ''
   } catch (error) {
     console.error('Linked items fetch failed:', error)
   }

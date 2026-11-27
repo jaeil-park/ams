@@ -14,6 +14,7 @@ from app.core.deps import get_db, get_current_user, require_admin
 from app.schemas.common import ResponseEnvelope, MetaSchema
 from app.services.audit import log_action
 from app.services.notifier import notify_approval_requested
+from app.services.po_link import normalize_po
 
 router = APIRouter()
 
@@ -308,7 +309,8 @@ async def create_part_usage(
             "location": obj_in.location,
             "reason": obj_in.reason,
             "qty": obj_in.qty,
-            "po_number": obj_in.po_number,
+            # 비교·연결은 정규화한 키로 한다 (po403813 / PO 403813 → PO403813)
+            "po_number": normalize_po(obj_in.po_number),
         }
     )
     db.add(approval_req)

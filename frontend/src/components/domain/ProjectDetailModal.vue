@@ -175,8 +175,10 @@
           <ul class="space-y-1">
             <li v-for="a in autoApplied" :key="a.field" class="flex items-center gap-2 flex-wrap">
               <span class="font-semibold text-slate-600 w-24 shrink-0">{{ a.label }}</span>
-              <span class="text-slate-400 line-through">{{ a.before ?? '(비어 있음)' }}</span>
-              <span class="text-slate-400">→</span>
+              <template v-if="a.field !== 'part_usages'">
+                <span class="text-slate-400 line-through">{{ a.before ?? '(비어 있음)' }}</span>
+                <span class="text-slate-400">→</span>
+              </template>
               <span class="font-bold text-emerald-700">{{ a.after }}</span>
             </li>
           </ul>

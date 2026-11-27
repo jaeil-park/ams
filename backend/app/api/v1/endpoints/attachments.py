@@ -22,6 +22,7 @@ from app import crud, models, schemas
 from app.core.deps import get_db, get_current_user
 from app.schemas.common import ResponseEnvelope
 from app.services.audit import log_action
+from app.services.po_link import relink_po
 from app.services.po_parser import is_parsable_po, parse_ariba_po
 
 router = APIRouter()
@@ -126,7 +127,15 @@ async def _merge_po_into_project(
                 "field": "po_number", "label": "PO 번호",
                 "before": project.po_number, "after": po_number,
             })
+            # 임시번호로 먼저 불출한 파트 출고·승인 대기 건도 실제 PO 로 옮긴다
+            moved = await relink_po(db, project.po_number, po_number)
             project.po_number = po_number
+            if moved["usages"] or moved["pending"]:
+                auto_applied.append({
+                    "field": "part_usages", "label": "파트 출고 PO 연결",
+                    "before": None,
+                    "after": f"출고 {moved['usages']}건, 승인 대기 {moved['pending']}건을 {po_number}로 옮김",
+                })
 
     # 2) PO 기준 금액
     if parsed.get("total_amount") is not None and project.po_amount != parsed["total_amount"]:
